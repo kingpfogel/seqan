@@ -311,7 +311,7 @@ inline void get_unique_kmers(Options & options)
 
             CharString rawUniqKmerFile;
             appendFileName(rawUniqKmerFile, options.uniqeKmerDir, binNo);
-            append(rawUniqKmerFile, ".raw");
+            append(rawUniqKmerFile, ".raw.gz");
 
             SeqFileOut rawFileOut(toCString(rawUniqKmerFile));
             std::map<Dna5String, bool> seqs;
