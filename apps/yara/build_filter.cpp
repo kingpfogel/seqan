@@ -59,6 +59,8 @@
 #include "misc_options_dis.h"
 #include "kdx_filter.h"
 #include "bloom_filter.h"
+#include "index_fm.h"
+
 
 using namespace seqan;
 
@@ -69,6 +71,8 @@ using namespace seqan;
 struct Options
 {
     CharString      contigsDir;
+    CharString      indicesDir;
+    CharString      uniqeKmerDir;
     CharString      filterFile;
 
     uint32_t        kmerSize;
@@ -117,6 +121,12 @@ void setupArgumentParser(ArgumentParser & parser, Options const & options)
     addArgument(parser, ArgParseArgument(ArgParseArgument::INPUT_PREFIX, "REFERENCE FILE DIR"));
     //    setValidValues(parser, 0, SeqFileIn::getFileExtensions());
     setHelpText(parser, 0, "A directory containing reference genome files.");
+
+    addArgument(parser, ArgParseArgument(ArgParseArgument::INPUT_PREFIX, "INDICES DIR"));
+    setHelpText(parser, 1, "A directory containing fm indices.");
+
+    addArgument(parser, ArgParseArgument(ArgParseArgument::OUTPUT_PREFIX, "INDICES DIR"));
+    setHelpText(parser, 2, "A directory to save unique kmers to.");
 
     addOption(parser, ArgParseOption("v", "verbose", "Displays verbose output."));
 
@@ -176,6 +186,10 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
 
     // Parse contigs input file.
     getArgumentValue(options.contigsDir, parser, 0);
+    // Parse contigs input file.
+    getArgumentValue(options.indicesDir, parser, 1);
+    // Parse contigs input file.
+    getArgumentValue(options.uniqeKmerDir, parser, 2);
 
     // Parse contigs index prefix.
     getOptionValue(options.filterFile, parser, "output-file");
@@ -206,6 +220,151 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
         }
     }
     return ArgumentParser::PARSE_OK;
+}
+template <typename TContigsSize, typename TContigsLen, typename TContigsSum>
+void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_file)
+{
+    typedef YaraFMConfig<TContigsSize, TContigsLen, TContigsSum>    TIndexConfig;
+    typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
+    typedef Index<typename TIndexConfig::Text, TIndexSpec>          TIndex;
+
+    TIndex other_fm_index;
+
+    if (!open(other_fm_index, toCString(fm_index_file), OPEN_RDONLY))
+        throw "ERROR: Could not open the index.";
+
+    typename Iterator<TIndex, TopDown<ParentLinks< > > >::Type fm_iter(other_fm_index);
+
+    for(auto iter = seqs.begin(); iter != seqs.end(); ++iter)
+    {
+        goRoot(fm_iter);
+        if (iter->second && goDown(fm_iter, iter->first))
+            iter->second = false;
+    }
+}
+
+template <typename TContigsSize, typename TContigsLen>
+void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_file, uint64_t contigsSum)
+{
+    if (contigsSum <= MaxValue<uint32_t>::VALUE)
+    {
+        check_in_fm_index<TContigsSize, TContigsLen, uint32_t>(seqs, fm_index_file);
+    }
+    else
+    {
+        check_in_fm_index<TContigsSize, TContigsLen, uint64_t>(seqs, fm_index_file);
+    }
+}
+
+template <typename TContigsSize>
+void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_file, uint64_t contigsMaxLength,  uint64_t contigsSum)
+{
+    if (contigsMaxLength <= MaxValue<uint32_t>::VALUE)
+    {
+        check_in_fm_index<TContigsSize, uint32_t>(seqs, fm_index_file, contigsSum);
+    }
+    else
+    {
+        check_in_fm_index<TContigsSize, uint64_t>(seqs, fm_index_file, contigsSum);
+    }
+}
+
+void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_file)
+{
+    String<uint64_t> limits;
+
+    CharString contigsLimitFile(fm_index_file);
+    append(contigsLimitFile, ".txt.size");
+
+    open(limits, toCString(contigsLimitFile), OPEN_RDONLY);
+
+    if (limits[1] <= MaxValue<uint8_t>::VALUE)
+    {
+        check_in_fm_index<uint8_t>(seqs, fm_index_file, limits[0], limits[2]);
+    }
+    else if (limits[1] <= MaxValue<uint16_t>::VALUE)
+    {
+        check_in_fm_index<uint16_t>(seqs, fm_index_file, limits[0], limits[2]);
+    }
+    else
+    {
+        check_in_fm_index<uint32_t>(seqs, fm_index_file, limits[0], limits[2]);
+    }
+}
+
+
+// ----------------------------------------------------------------------------
+// Function get_unique_kmers()
+// ----------------------------------------------------------------------------
+inline void get_unique_kmers(Options & options)
+{
+    typedef Shape<Dna5, SimpleShape> TShape;
+
+    std::string comExt = commonExtension(options.contigsDir, options.numberOfBins);
+
+    TShape kmerShape;
+    resize(kmerShape, options.kmerSize);
+
+    for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
+    {
+        std::vector<bool> isUniq;
+
+        CharString rawUniqKmerFile;
+        appendFileName(rawUniqKmerFile, options.uniqeKmerDir, binNo);
+        append(rawUniqKmerFile, ".raw");
+
+        SeqFileOut rawFileOut(toCString(rawUniqKmerFile));
+        std::map<Dna5String, bool> seqs;
+        CharString id;
+        Dna5String seq;
+
+
+        CharString fastaFile;
+        appendFileName(fastaFile, options.contigsDir, binNo);
+        append(fastaFile, comExt);
+        SeqFileIn seqFileIn;
+        if (!open(seqFileIn, toCString(fastaFile)))
+        {
+            CharString msg = "Unable to open contigs File: ";
+            append (msg, fastaFile);
+            throw toCString(msg);
+        }
+        while(!atEnd(seqFileIn))
+        {
+            readRecord(id, seq, seqFileIn);
+            if(length(seq) < options.kmerSize)
+                continue;
+
+            seqs[seq] = true;
+        }
+        close(seqFileIn);
+        std::cerr << seqs.size() <<" kmers from bin " << binNo << std::endl;
+        for (uint32_t otherBinNo = 0; otherBinNo < options.numberOfBins; ++otherBinNo)
+        {
+            if (otherBinNo == binNo)
+                continue;
+            CharString fm_index_file;
+            appendFileName(fm_index_file, options.indicesDir, otherBinNo);
+
+            check_in_fm_index(seqs, fm_index_file);
+        }
+
+        //write those that are uniq
+        uint32_t counter = 1;
+        for(auto iter = seqs.begin(); iter != seqs.end(); ++iter)
+        {
+
+            if (iter->second)
+            {
+                writeRecord(rawFileOut, counter, iter->first);
+                ++counter;
+            }
+        }
+        std::cerr << counter <<" unique kmers from bin " << binNo << std::endl;
+        close(rawFileOut);
+
+    }
+
 }
 
 // ----------------------------------------------------------------------------
@@ -284,24 +443,25 @@ int main(int argc, char const ** argv)
 
     try
     {
-        if (options.filterType == BLOOM)
-        {
-            SeqAnBloomFilter<> filter  (options.numberOfBins,
-                                        options.numberOfHashes,
-                                        options.kmerSize,
-                                        options.bloomFilterSize);
-
-            build_filter(options, filter);
-        }
-        else if (options.filterType == KMER_DIRECT)
-        {
-            uint64_t vec_size = (1u << (2 * options.kmerSize));
-            vec_size *= options.numberOfBins;
-            vec_size += filterMetadataSize;
-            SeqAnKDXFilter<> filter (options.numberOfBins, options.kmerSize, vec_size);
-
-            build_filter(options, filter);
-        }
+        get_unique_kmers(options);
+//        if (options.filterType == BLOOM)
+//        {
+//            SeqAnBloomFilter<> filter  (options.numberOfBins,
+//                                        options.numberOfHashes,
+//                                        options.kmerSize,
+//                                        options.bloomFilterSize);
+//
+//            build_filter(options, filter);
+//        }
+//        else if (options.filterType == KMER_DIRECT)
+//        {
+//            uint64_t vec_size = (1u << (2 * options.kmerSize));
+//            vec_size *= options.numberOfBins;
+//            vec_size += filterMetadataSize;
+//            SeqAnKDXFilter<> filter (options.numberOfBins, options.kmerSize, vec_size);
+//
+//            build_filter(options, filter);
+//        }
 
     }
     catch (Exception const & e)
