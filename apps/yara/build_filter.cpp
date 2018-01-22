@@ -298,71 +298,75 @@ void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_
 // ----------------------------------------------------------------------------
 inline void get_unique_kmers(Options & options)
 {
-    typedef Shape<Dna5, SimpleShape> TShape;
-
     std::string comExt = commonExtension(options.contigsDir, options.numberOfBins);
 
-    TShape kmerShape;
-    resize(kmerShape, options.kmerSize);
+    Semaphore thread_limiter(options.threadsCount);
+    std::vector<std::future<void>> tasks;
 
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
     {
-        std::vector<bool> isUniq;
+        tasks.emplace_back(std::async([=, &thread_limiter] {
 
-        CharString rawUniqKmerFile;
-        appendFileName(rawUniqKmerFile, options.uniqeKmerDir, binNo);
-        append(rawUniqKmerFile, ".raw");
+            Critical_section _(thread_limiter);
 
-        SeqFileOut rawFileOut(toCString(rawUniqKmerFile));
-        std::map<Dna5String, bool> seqs;
-        CharString id;
-        Dna5String seq;
+            CharString rawUniqKmerFile;
+            appendFileName(rawUniqKmerFile, options.uniqeKmerDir, binNo);
+            append(rawUniqKmerFile, ".raw");
+
+            SeqFileOut rawFileOut(toCString(rawUniqKmerFile));
+            std::map<Dna5String, bool> seqs;
+            CharString id;
+            Dna5String seq;
 
 
-        CharString fastaFile;
-        appendFileName(fastaFile, options.contigsDir, binNo);
-        append(fastaFile, comExt);
-        SeqFileIn seqFileIn;
-        if (!open(seqFileIn, toCString(fastaFile)))
-        {
-            CharString msg = "Unable to open contigs File: ";
-            append (msg, fastaFile);
-            throw toCString(msg);
-        }
-        while(!atEnd(seqFileIn))
-        {
-            readRecord(id, seq, seqFileIn);
-            if(length(seq) < options.kmerSize)
-                continue;
-
-            seqs[seq] = true;
-        }
-        close(seqFileIn);
-        std::cerr << seqs.size() <<" kmers from bin " << binNo << std::endl;
-        for (uint32_t otherBinNo = 0; otherBinNo < options.numberOfBins; ++otherBinNo)
-        {
-            if (otherBinNo == binNo)
-                continue;
-            CharString fm_index_file;
-            appendFileName(fm_index_file, options.indicesDir, otherBinNo);
-
-            check_in_fm_index(seqs, fm_index_file);
-        }
-
-        //write those that are uniq
-        uint32_t counter = 1;
-        for(auto iter = seqs.begin(); iter != seqs.end(); ++iter)
-        {
-
-            if (iter->second)
+            CharString fastaFile;
+            appendFileName(fastaFile, options.contigsDir, binNo);
+            append(fastaFile, comExt);
+            SeqFileIn seqFileIn;
+            if (!open(seqFileIn, toCString(fastaFile)))
             {
-                writeRecord(rawFileOut, counter, iter->first);
-                ++counter;
+                CharString msg = "Unable to open contigs File: ";
+                append (msg, fastaFile);
+                throw toCString(msg);
             }
-        }
-        std::cerr << counter <<" unique kmers from bin " << binNo << std::endl;
-        close(rawFileOut);
+            while(!atEnd(seqFileIn))
+            {
+                readRecord(id, seq, seqFileIn);
+                if(length(seq) < options.kmerSize)
+                    continue;
 
+                seqs[seq] = true;
+            }
+            close(seqFileIn);
+            std::cerr << seqs.size() <<" kmers from bin " << binNo << std::endl;
+            for (uint32_t otherBinNo = 0; otherBinNo < options.numberOfBins; ++otherBinNo)
+            {
+                if (otherBinNo == binNo)
+                    continue;
+                CharString fm_index_file;
+                appendFileName(fm_index_file, options.indicesDir, otherBinNo);
+
+                check_in_fm_index(seqs, fm_index_file);
+            }
+
+            //write those that are uniq
+            uint32_t counter = 1;
+            for(auto iter = seqs.begin(); iter != seqs.end(); ++iter)
+            {
+
+                if (iter->second)
+                {
+                    writeRecord(rawFileOut, counter, iter->first);
+                    ++counter;
+                }
+            }
+            std::cerr << counter <<" unique kmers from bin " << binNo << std::endl;
+            close(rawFileOut);
+       }));
+    }
+    for (auto &&task : tasks)
+    {
+        task.get();
     }
 
 }
