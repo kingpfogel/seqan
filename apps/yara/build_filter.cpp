@@ -222,7 +222,7 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
     return ArgumentParser::PARSE_OK;
 }
 template <typename TContigsSize, typename TContigsLen, typename TContigsSum>
-void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_file)
+void check_in_fm_index(std::unordered_map<std::string, bool> & seqs, CharString & fm_index_file)
 {
     typedef YaraFMConfig<TContigsSize, TContigsLen, TContigsSum>    TIndexConfig;
     typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
@@ -238,13 +238,13 @@ void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_
     for(auto iter = seqs.begin(); iter != seqs.end(); ++iter)
     {
         goRoot(fm_iter);
-        if (iter->second && goDown(fm_iter, iter->first))
+        if (iter->second && goDown(fm_iter, (Dna5String)iter->first))
             iter->second = false;
     }
 }
 
 template <typename TContigsSize, typename TContigsLen>
-void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_file, uint64_t contigsSum)
+void check_in_fm_index(std::unordered_map<std::string, bool> & seqs, CharString & fm_index_file, uint64_t contigsSum)
 {
     if (contigsSum <= MaxValue<uint32_t>::VALUE)
     {
@@ -257,7 +257,7 @@ void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_
 }
 
 template <typename TContigsSize>
-void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_file, uint64_t contigsMaxLength,  uint64_t contigsSum)
+void check_in_fm_index(std::unordered_map<std::string, bool> & seqs, CharString & fm_index_file, uint64_t contigsMaxLength,  uint64_t contigsSum)
 {
     if (contigsMaxLength <= MaxValue<uint32_t>::VALUE)
     {
@@ -269,7 +269,7 @@ void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_
     }
 }
 
-void check_in_fm_index(std::map<Dna5String, bool> & seqs, CharString & fm_index_file)
+void check_in_fm_index(std::unordered_map<std::string, bool> & seqs, CharString & fm_index_file)
 {
     String<uint64_t> limits;
 
@@ -314,9 +314,9 @@ inline void get_unique_kmers(Options & options)
             append(rawUniqKmerFile, ".raw.gz");
 
             SeqFileOut rawFileOut(toCString(rawUniqKmerFile));
-            std::map<Dna5String, bool> seqs;
+            std::unordered_map<std::string, bool> seqs;
             CharString id;
-            Dna5String seq;
+            std::string seq;
 
 
             CharString fastaFile;
