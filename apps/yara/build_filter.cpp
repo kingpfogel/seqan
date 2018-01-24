@@ -231,7 +231,8 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
 // ----------------------------------------------------------------------------
 inline void get_unique_kmers(Options & options)
 {
-    typedef YaraFMConfig<uint8_t, uint16_t, uint32_t>    TIndexConfig;
+    typedef YaraFMConfig<uint16_t, uint32_t, uint64_t>    TIndexConfig;
+//    typedef YaraFMConfig<uint8_t, uint16_t, uint32_t>    TIndexConfig;
     typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
     typedef Index<typename TIndexConfig::Text, TIndexSpec>          TIndex;
 
