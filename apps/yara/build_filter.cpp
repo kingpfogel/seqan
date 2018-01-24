@@ -231,7 +231,7 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
 // ----------------------------------------------------------------------------
 inline void get_unique_kmers(Options & options)
 {
-    typedef YaraFMConfig<uint16_t, uint32_t, uint64_t>    TIndexConfig;
+    typedef YaraFMConfig<uint8_t, uint16_t, uint32_t>    TIndexConfig;
     typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
     typedef Index<typename TIndexConfig::Text, TIndexSpec>          TIndex;
 
@@ -244,7 +244,7 @@ inline void get_unique_kmers(Options & options)
 
     std::cout << limits[1] << ", "  << limits[0] << ", "  << limits[2] << "\n";
     std::string comExt = commonExtension(options.contigsDir, options.numberOfBins);
-    std::unordered_map<std::string, uint32_t> bin_map;
+    std::map<CharString, uint32_t> bin_map;
     std::unordered_map<uint32_t, uint32_t> big_bin_map;
 
     typedef SeqStore<void, YaraContigsConfig<> >                    TContigs;
@@ -262,10 +262,10 @@ inline void get_unique_kmers(Options & options)
         for (uint32_t i = 0; i < length(tmpContigs.names); ++i)
         {
             CharString s = (CharString)tmpContigs.names[i];
-            bin_map[toCString(s)] = binNo;
+//            std::cout  << binNo << "\t"  << s << std::endl;
+            bin_map[s] = binNo;
         }
     }
-
 
     TContigs allContigs;
 
@@ -275,14 +275,13 @@ inline void get_unique_kmers(Options & options)
     for (uint32_t i = 0; i < length(allContigs.names); ++i)
     {
         CharString s = (CharString)allContigs.names[i];
-        big_bin_map[i] = bin_map[toCString(s)];
+//        std::cout << i << "\t"  << bin_map[s] << "\t"  << s << "\t" << std::endl;
+        big_bin_map[i] = bin_map[s];
     }
 
     TIndex big_fm_index;
     if (!open(big_fm_index, toCString(options.bigIndexDir), OPEN_RDONLY))
         throw "ERROR: Could not open the index.";
-
-
 
 
 
@@ -318,24 +317,19 @@ inline void get_unique_kmers(Options & options)
                 uint32_t len = length(seqs);
                 counter += len;
 
-                typename Iterator<TIndex, TopDown<ParentLinks< > > >::Type fm_iter(big_fm_index);
-
                 for(uint32_t i = 0; i<len; ++i)
                 {
                     bool uniq = true;
-                    goRoot(fm_iter);
+                    typename Iterator<TIndex, TopDown<> >::Type fm_iter(big_fm_index);
                     if (goDown(fm_iter, seqs[i]))
                     {
                         auto occ = getOccurrences(fm_iter);
-                        if (length(occ) > 1)
+                        for (auto o : occ)
                         {
-                            for (auto o : occ)
+                            if (big_bin_map[(int)o.i1] != binNo)
                             {
-                                if (big_bin_map[o.i1] != binNo)
-                                {
-                                    uniq = false;
-                                    break;
-                                }
+                                uniq = false;
+                                break;
                             }
                         }
                         if (uniq)
