@@ -71,6 +71,7 @@ using namespace seqan;
 struct Options
 {
     CharString      contigsDir;
+    CharString      bigIndexDir;
     CharString      indicesDir;
     CharString      uniqeKmerDir;
     CharString      filterFile;
@@ -125,8 +126,11 @@ void setupArgumentParser(ArgumentParser & parser, Options const & options)
     addArgument(parser, ArgParseArgument(ArgParseArgument::INPUT_PREFIX, "INDICES DIR"));
     setHelpText(parser, 1, "A directory containing fm indices.");
 
-    addArgument(parser, ArgParseArgument(ArgParseArgument::OUTPUT_PREFIX, "INDICES DIR"));
+    addArgument(parser, ArgParseArgument(ArgParseArgument::OUTPUT_PREFIX, "UNIQUE KMERS"));
     setHelpText(parser, 2, "A directory to save unique kmers to.");
+
+    addArgument(parser, ArgParseArgument(ArgParseArgument::INPUT_PREFIX, "BIG INDICES DIR"));
+    setHelpText(parser, 3, "A directory containing the big indices");
 
     addOption(parser, ArgParseOption("v", "verbose", "Displays verbose output."));
 
@@ -186,10 +190,9 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
 
     // Parse contigs input file.
     getArgumentValue(options.contigsDir, parser, 0);
-    // Parse contigs input file.
     getArgumentValue(options.indicesDir, parser, 1);
-    // Parse contigs input file.
     getArgumentValue(options.uniqeKmerDir, parser, 2);
+    getArgumentValue(options.bigIndexDir, parser, 3);
 
     // Parse contigs index prefix.
     getOptionValue(options.filterFile, parser, "output-file");
@@ -221,77 +224,6 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
     }
     return ArgumentParser::PARSE_OK;
 }
-template <typename TContigsSize, typename TContigsLen, typename TContigsSum>
-void check_in_fm_index(StringSet<Dna5String> & seqs, StringSet<bool> & uniqs, CharString & fm_index_file)
-{
-    typedef YaraFMConfig<TContigsSize, TContigsLen, TContigsSum>    TIndexConfig;
-    typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
-    typedef Index<typename TIndexConfig::Text, TIndexSpec>          TIndex;
-
-    TIndex other_fm_index;
-
-    if (!open(other_fm_index, toCString(fm_index_file), OPEN_RDONLY))
-        throw "ERROR: Could not open the index.";
-
-    typename Iterator<TIndex, TopDown<ParentLinks< > > >::Type fm_iter(other_fm_index);
-
-    uint32_t len = length(seqs);
-    for(uint32_t i = 0; i<len; ++i)
-    {
-        goRoot(fm_iter);
-        if (goDown(fm_iter, seqs[i]))
-            uniqs[i] = false;
-    }
-}
-
-template <typename TContigsSize, typename TContigsLen>
-void check_in_fm_index(StringSet<Dna5String> & seqs, StringSet<bool> & uniqs, CharString & fm_index_file, uint64_t contigsSum)
-{
-    if (contigsSum <= MaxValue<uint32_t>::VALUE)
-    {
-        check_in_fm_index<TContigsSize, TContigsLen, uint32_t>(seqs, uniqs, fm_index_file);
-    }
-    else
-    {
-        check_in_fm_index<TContigsSize, TContigsLen, uint64_t>(seqs, uniqs, fm_index_file);
-    }
-}
-
-template <typename TContigsSize>
-void check_in_fm_index(StringSet<Dna5String> & seqs, StringSet<bool> & uniqs, CharString & fm_index_file, uint64_t contigsMaxLength,  uint64_t contigsSum)
-{
-    if (contigsMaxLength <= MaxValue<uint32_t>::VALUE)
-    {
-        check_in_fm_index<TContigsSize, uint32_t>(seqs, uniqs, fm_index_file, contigsSum);
-    }
-    else
-    {
-        check_in_fm_index<TContigsSize, uint64_t>(seqs, uniqs, fm_index_file, contigsSum);
-    }
-}
-
-void check_in_fm_index(StringSet<Dna5String> & seqs, StringSet<bool> & uniqs, CharString & fm_index_file)
-{
-    String<uint64_t> limits;
-
-    CharString contigsLimitFile(fm_index_file);
-    append(contigsLimitFile, ".txt.size");
-
-    open(limits, toCString(contigsLimitFile), OPEN_RDONLY);
-
-    if (limits[1] <= MaxValue<uint8_t>::VALUE)
-    {
-        check_in_fm_index<uint8_t>(seqs, uniqs, fm_index_file, limits[0], limits[2]);
-    }
-    else if (limits[1] <= MaxValue<uint16_t>::VALUE)
-    {
-        check_in_fm_index<uint16_t>(seqs, uniqs, fm_index_file, limits[0], limits[2]);
-    }
-    else
-    {
-        check_in_fm_index<uint32_t>(seqs, uniqs, fm_index_file, limits[0], limits[2]);
-    }
-}
 
 
 // ----------------------------------------------------------------------------
@@ -299,17 +231,64 @@ void check_in_fm_index(StringSet<Dna5String> & seqs, StringSet<bool> & uniqs, Ch
 // ----------------------------------------------------------------------------
 inline void get_unique_kmers(Options & options)
 {
-    std::string comExt = commonExtension(options.contigsDir, options.numberOfBins);
+    typedef YaraFMConfig<uint8_t, uint32_t, uint32_t>    TIndexConfig;
+    typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
+    typedef Index<typename TIndexConfig::Text, TIndexSpec>          TIndex;
 
-    Semaphore thread_limiter(options.threadsCount);
-    std::vector<std::future<void>> tasks;
+
+    String<uint64_t> limits;
+
+    CharString contigsLimitFile(options.bigIndexDir);
+    append(contigsLimitFile, ".txt.size");
+    open(limits, toCString(contigsLimitFile), OPEN_RDONLY);
+
+    std::cout << limits[1] << ", "  << limits[0] << ", "  << limits[2] << "\n";
+    std::string comExt = commonExtension(options.contigsDir, options.numberOfBins);
+    std::unordered_map<std::string, uint32_t> bin_map;
+    std::unordered_map<uint32_t, uint32_t> big_bin_map;
+
+    typedef SeqStore<void, YaraContigsConfig<> >                    TContigs;
 
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
     {
-        tasks.emplace_back(std::async([=, &thread_limiter] {
+        CharString fm_index_file;
+        appendFileName(fm_index_file, options.indicesDir, binNo);
 
+        TContigs tmpContigs;
+
+        if (!open(tmpContigs, toCString(fm_index_file), OPEN_RDONLY))
+            throw RuntimeError("Error while opening reference file.");
+
+        for (uint32_t i = 0; i < length(tmpContigs.names); ++i)
+        {
+            CharString s = (CharString)tmpContigs.names[i];
+            bin_map[toCString(s)] = binNo;
+        }
+    }
+
+
+    TContigs allContigs;
+
+    if (!open(allContigs, toCString(options.bigIndexDir), OPEN_RDONLY))
+        throw RuntimeError("Error while opening reference file.");
+
+    for (uint32_t i = 0; i < length(allContigs.names); ++i)
+    {
+        CharString s = (CharString)allContigs.names[i];
+        big_bin_map[i] = bin_map[toCString(s)];
+    }
+
+    TIndex big_fm_index;
+    if (!open(big_fm_index, toCString(options.bigIndexDir), OPEN_RDONLY))
+        throw "ERROR: Could not open the index.";
+
+
+
+
+
+    for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
+    {
             uint32_t batchSize = 1000000;
-            Critical_section _(thread_limiter);
 
             CharString rawUniqKmerFile;
             appendFileName(rawUniqKmerFile, options.uniqeKmerDir, binNo);
@@ -331,52 +310,50 @@ inline void get_unique_kmers(Options & options)
             uint32_t counter = 0;
             uint32_t uniq_counter = 0;
             StringSet<CharString> ids;
-            StringSet<Dna5String> seqs;
+            StringSet<IupacString> seqs;
             StringSet<bool>       uniqs;
             while(!atEnd(seqFileIn))
             {
                 readRecords(ids, seqs, seqFileIn, batchSize);
                 uint32_t len = length(seqs);
                 counter += len;
-                resize(uniqs, len);
-                for (uint32_t i=0; i<len; ++i) {
-                    uniqs[i] = true;
-                }
 
-                for (uint32_t otherBinNo = 0; otherBinNo < options.numberOfBins; ++otherBinNo)
-                {
-                    if (otherBinNo == binNo)
-                        continue;
-                    CharString fm_index_file;
-                    appendFileName(fm_index_file, options.indicesDir, otherBinNo);
+                typename Iterator<TIndex, TopDown<ParentLinks< > > >::Type fm_iter(big_fm_index);
 
-                    check_in_fm_index(seqs, uniqs, fm_index_file);
-                }
-
-                //write those that are uniq
                 for(uint32_t i = 0; i<len; ++i)
                 {
-                    if (uniqs[i])
+                    bool uniq = true;
+                    goRoot(fm_iter);
+                    if (goDown(fm_iter, seqs[i]))
                     {
-                        writeRecord(rawFileOut, counter, seqs[i]);
-                        ++uniq_counter;
+                        auto occ = getOccurrences(fm_iter);
+                        if (length(occ) > 1)
+                        {
+                            for (auto o : occ)
+                            {
+                                if (big_bin_map[o.i1] != binNo)
+                                {
+                                    uniq = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (uniq)
+                        {
+                            writeRecord(rawFileOut, counter, seqs[i]);
+                            ++uniq_counter;
+                        }
                     }
                 }
+
                 clear(ids);
                 clear(seqs);
-                clear(uniqs);
             }
             close(seqFileIn);
             close(rawFileOut);
             std::cerr << counter <<" kmers from bin " << binNo << std::endl;
             std::cerr << uniq_counter <<" unique kmers from bin " << binNo << std::endl;
-       }));
     }
-    for (auto &&task : tasks)
-    {
-        task.get();
-    }
-
 }
 
 // ----------------------------------------------------------------------------
