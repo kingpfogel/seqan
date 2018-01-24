@@ -301,8 +301,6 @@ inline void get_unique_kmers(Options & options)
 {
     std::string comExt = commonExtension(options.contigsDir, options.numberOfBins);
 
-    uint32_t batchSize = 100000;
-
     Semaphore thread_limiter(options.threadsCount);
     std::vector<std::future<void>> tasks;
 
@@ -310,6 +308,7 @@ inline void get_unique_kmers(Options & options)
     {
         tasks.emplace_back(std::async([=, &thread_limiter] {
 
+            uint32_t batchSize = 1000000;
             Critical_section _(thread_limiter);
 
             CharString rawUniqKmerFile;
@@ -331,16 +330,16 @@ inline void get_unique_kmers(Options & options)
             }
             uint32_t counter = 0;
             uint32_t uniq_counter = 0;
+            StringSet<CharString> ids;
+            StringSet<Dna5String> seqs;
+            StringSet<bool>       uniqs;
             while(!atEnd(seqFileIn))
             {
-                StringSet<CharString> ids;
-                StringSet<Dna5String> seqs;
-                StringSet<bool>       uniqs;
                 readRecords(ids, seqs, seqFileIn, batchSize);
                 uint32_t len = length(seqs);
                 counter += len;
                 resize(uniqs, len);
-                for (uint32_t i=0; i<batchSize; ++i) {
+                for (uint32_t i=0; i<len; ++i) {
                     uniqs[i] = true;
                 }
 
@@ -363,6 +362,9 @@ inline void get_unique_kmers(Options & options)
                         ++uniq_counter;
                     }
                 }
+                clear(ids);
+                clear(seqs);
+                clear(uniqs);
             }
             close(seqFileIn);
             close(rawFileOut);
