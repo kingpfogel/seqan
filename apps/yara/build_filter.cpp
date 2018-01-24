@@ -222,7 +222,7 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
     return ArgumentParser::PARSE_OK;
 }
 template <typename TContigsSize, typename TContigsLen, typename TContigsSum>
-void check_in_fm_index(std::unordered_map<std::string, bool> & seqs, CharString & fm_index_file)
+void check_in_fm_index(StringSet<Dna5String> & seqs, StringSet<bool> & uniqs, CharString & fm_index_file)
 {
     typedef YaraFMConfig<TContigsSize, TContigsLen, TContigsSum>    TIndexConfig;
     typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
@@ -235,41 +235,42 @@ void check_in_fm_index(std::unordered_map<std::string, bool> & seqs, CharString 
 
     typename Iterator<TIndex, TopDown<ParentLinks< > > >::Type fm_iter(other_fm_index);
 
-    for(auto iter = seqs.begin(); iter != seqs.end(); ++iter)
+    uint32_t len = length(seqs);
+    for(uint32_t i = 0; i<len; ++i)
     {
         goRoot(fm_iter);
-        if (iter->second && goDown(fm_iter, (Dna5String)iter->first))
-            iter->second = false;
+        if (goDown(fm_iter, seqs[i]))
+            uniqs[i] = false;
     }
 }
 
 template <typename TContigsSize, typename TContigsLen>
-void check_in_fm_index(std::unordered_map<std::string, bool> & seqs, CharString & fm_index_file, uint64_t contigsSum)
+void check_in_fm_index(StringSet<Dna5String> & seqs, StringSet<bool> & uniqs, CharString & fm_index_file, uint64_t contigsSum)
 {
     if (contigsSum <= MaxValue<uint32_t>::VALUE)
     {
-        check_in_fm_index<TContigsSize, TContigsLen, uint32_t>(seqs, fm_index_file);
+        check_in_fm_index<TContigsSize, TContigsLen, uint32_t>(seqs, uniqs, fm_index_file);
     }
     else
     {
-        check_in_fm_index<TContigsSize, TContigsLen, uint64_t>(seqs, fm_index_file);
+        check_in_fm_index<TContigsSize, TContigsLen, uint64_t>(seqs, uniqs, fm_index_file);
     }
 }
 
 template <typename TContigsSize>
-void check_in_fm_index(std::unordered_map<std::string, bool> & seqs, CharString & fm_index_file, uint64_t contigsMaxLength,  uint64_t contigsSum)
+void check_in_fm_index(StringSet<Dna5String> & seqs, StringSet<bool> & uniqs, CharString & fm_index_file, uint64_t contigsMaxLength,  uint64_t contigsSum)
 {
     if (contigsMaxLength <= MaxValue<uint32_t>::VALUE)
     {
-        check_in_fm_index<TContigsSize, uint32_t>(seqs, fm_index_file, contigsSum);
+        check_in_fm_index<TContigsSize, uint32_t>(seqs, uniqs, fm_index_file, contigsSum);
     }
     else
     {
-        check_in_fm_index<TContigsSize, uint64_t>(seqs, fm_index_file, contigsSum);
+        check_in_fm_index<TContigsSize, uint64_t>(seqs, uniqs, fm_index_file, contigsSum);
     }
 }
 
-void check_in_fm_index(std::unordered_map<std::string, bool> & seqs, CharString & fm_index_file)
+void check_in_fm_index(StringSet<Dna5String> & seqs, StringSet<bool> & uniqs, CharString & fm_index_file)
 {
     String<uint64_t> limits;
 
@@ -280,15 +281,15 @@ void check_in_fm_index(std::unordered_map<std::string, bool> & seqs, CharString 
 
     if (limits[1] <= MaxValue<uint8_t>::VALUE)
     {
-        check_in_fm_index<uint8_t>(seqs, fm_index_file, limits[0], limits[2]);
+        check_in_fm_index<uint8_t>(seqs, uniqs, fm_index_file, limits[0], limits[2]);
     }
     else if (limits[1] <= MaxValue<uint16_t>::VALUE)
     {
-        check_in_fm_index<uint16_t>(seqs, fm_index_file, limits[0], limits[2]);
+        check_in_fm_index<uint16_t>(seqs, uniqs, fm_index_file, limits[0], limits[2]);
     }
     else
     {
-        check_in_fm_index<uint32_t>(seqs, fm_index_file, limits[0], limits[2]);
+        check_in_fm_index<uint32_t>(seqs, uniqs, fm_index_file, limits[0], limits[2]);
     }
 }
 
@@ -299,6 +300,8 @@ void check_in_fm_index(std::unordered_map<std::string, bool> & seqs, CharString 
 inline void get_unique_kmers(Options & options)
 {
     std::string comExt = commonExtension(options.contigsDir, options.numberOfBins);
+
+    uint32_t batchSize = 100000;
 
     Semaphore thread_limiter(options.threadsCount);
     std::vector<std::future<void>> tasks;
@@ -314,9 +317,6 @@ inline void get_unique_kmers(Options & options)
             append(rawUniqKmerFile, ".raw.gz");
 
             SeqFileOut rawFileOut(toCString(rawUniqKmerFile));
-            std::unordered_map<std::string, bool> seqs;
-            CharString id;
-            std::string seq;
 
 
             CharString fastaFile;
@@ -329,39 +329,45 @@ inline void get_unique_kmers(Options & options)
                 append (msg, fastaFile);
                 throw toCString(msg);
             }
+            uint32_t counter = 0;
+            uint32_t uniq_counter = 0;
             while(!atEnd(seqFileIn))
             {
-                readRecord(id, seq, seqFileIn);
-                if(length(seq) < options.kmerSize)
-                    continue;
+                StringSet<CharString> ids;
+                StringSet<Dna5String> seqs;
+                StringSet<bool>       uniqs;
+                readRecords(ids, seqs, seqFileIn, batchSize);
+                uint32_t len = length(seqs);
+                counter += len;
+                resize(uniqs, len);
+                for (uint32_t i=0; i<batchSize; ++i) {
+                    uniqs[i] = true;
+                }
 
-                seqs[seq] = true;
-            }
-            close(seqFileIn);
-            std::cerr << seqs.size() <<" kmers from bin " << binNo << std::endl;
-            for (uint32_t otherBinNo = 0; otherBinNo < options.numberOfBins; ++otherBinNo)
-            {
-                if (otherBinNo == binNo)
-                    continue;
-                CharString fm_index_file;
-                appendFileName(fm_index_file, options.indicesDir, otherBinNo);
-
-                check_in_fm_index(seqs, fm_index_file);
-            }
-
-            //write those that are uniq
-            uint32_t counter = 1;
-            for(auto iter = seqs.begin(); iter != seqs.end(); ++iter)
-            {
-
-                if (iter->second)
+                for (uint32_t otherBinNo = 0; otherBinNo < options.numberOfBins; ++otherBinNo)
                 {
-                    writeRecord(rawFileOut, counter, iter->first);
-                    ++counter;
+                    if (otherBinNo == binNo)
+                        continue;
+                    CharString fm_index_file;
+                    appendFileName(fm_index_file, options.indicesDir, otherBinNo);
+
+                    check_in_fm_index(seqs, uniqs, fm_index_file);
+                }
+
+                //write those that are uniq
+                for(uint32_t i = 0; i<len; ++i)
+                {
+                    if (uniqs[i])
+                    {
+                        writeRecord(rawFileOut, counter, seqs[i]);
+                        ++uniq_counter;
+                    }
                 }
             }
-            std::cerr << counter <<" unique kmers from bin " << binNo << std::endl;
+            close(seqFileIn);
             close(rawFileOut);
+            std::cerr << counter <<" kmers from bin " << binNo << std::endl;
+            std::cerr << uniq_counter <<" unique kmers from bin " << binNo << std::endl;
        }));
     }
     for (auto &&task : tasks)
