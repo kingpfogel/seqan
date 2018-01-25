@@ -294,7 +294,7 @@ inline void get_unique_kmers(Options & options)
 
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
     {
-        tasks.emplace_back(std::async([=, &thread_limiter, &uniq_counts, &kmer_counts] {
+        tasks.emplace_back(std::async([=, &thread_limiter, &uniq_counts, &kmer_counts, &big_fm_index] {
         Critical_section _(thread_limiter);
 
         uint32_t batchSize = 10000;
