@@ -297,7 +297,7 @@ inline void get_unique_kmers(Options & options)
         tasks.emplace_back(std::async([=, &thread_limiter, &uniq_counts, &kmer_counts] {
         Critical_section _(thread_limiter);
 
-        uint32_t batchSize = 1000000;
+        uint32_t batchSize = 10000;
         Finder<TIndex> finder(big_fm_index);
 
 //        CharString rawUniqKmerFile;
@@ -312,18 +312,14 @@ inline void get_unique_kmers(Options & options)
         append(fastaFile, comExt);
         SeqFileIn seqFileIn;
         if (!open(seqFileIn, toCString(fastaFile)))
-        {
-            CharString msg = "Unable to open contigs File: ";
-            append (msg, fastaFile);
-            throw toCString(msg);
-        }
+            std:cerr <<"Unable to open contigs File: " << toCString(fastaFile) << std::endl;
 //        uint32_t counter = 0;
 //        uint32_t uniq_counter = 0;
         StringSet<CharString> ids;
         StringSet<IupacString> seqs;
 
-        while(!atEnd(seqFileIn))
-        {
+//        while(!atEnd(seqFileIn))
+//        {
 //            CharString id;
 //            IupacString seq;
 //            readRecord(id, seq, seqFileIn);
@@ -336,7 +332,7 @@ inline void get_unique_kmers(Options & options)
                 bool uniq = true;
                 while (find(finder, seqs[i]))
                 {
-                    auto && pos = position(finder);
+                    auto pos = position(finder);
                     uint32_t rID = getValueI1(pos);
                     auto bi = big_bin_map.find(rID);
 
@@ -351,11 +347,12 @@ inline void get_unique_kmers(Options & options)
 //                    writeRecord(rawFileOut, counter, seqs[i]);
                     ++uniq_counts[binNo];
                 }
-                clear(finder);
+                goBegin(finder);    // move Finder to the beginning of the text
+                clear(finder);      // reset Finder
             }
             clear(ids);
             clear(seqs);
-        }
+//        }
         close(seqFileIn);
 //        close(rawFileOut);
 //        std::cerr << counter <<" kmers from bin " << binNo << std::endl;
