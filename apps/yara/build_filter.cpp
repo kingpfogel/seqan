@@ -248,6 +248,9 @@ inline void get_unique_kmers(Options & options)
     std::map<CharString, uint32_t> bin_map;
     std::map<uint32_t, uint32_t> big_bin_map;
 
+    std::vector<uint64_t> uniq_counts(options.numberOfBins, 0);
+    std::vector<uint64_t> kmer_counts(options.numberOfBins, 0);
+
     typedef SeqStore<void, YaraContigsConfig<> >                    TContigs;
 
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
@@ -285,18 +288,23 @@ inline void get_unique_kmers(Options & options)
     if (!open(big_fm_index, toCString(options.bigIndexDir), OPEN_RDONLY))
         throw "ERROR: Could not open the index.";
 
-    Finder<TIndex> finder(big_fm_index);
-    typename Iterator<TIndex, TopDown<> >::Type fm_iter(big_fm_index);
+
+    Semaphore thread_limiter(options.threadsCount);
+    std::vector<std::future<void>> tasks;
 
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
     {
+        tasks.emplace_back(std::async([=, &thread_limiter, &uniq_counts, &kmer_counts, &big_bin_map] {
+        Critical_section _(thread_limiter);
+
         uint32_t batchSize = 1000000;
+        Finder<TIndex> finder(big_fm_index);
 
-        CharString rawUniqKmerFile;
-        appendFileName(rawUniqKmerFile, options.uniqeKmerDir, binNo);
-        append(rawUniqKmerFile, ".fa.gz");
-
-        SeqFileOut rawFileOut(toCString(rawUniqKmerFile));
+//        CharString rawUniqKmerFile;
+//        appendFileName(rawUniqKmerFile, options.uniqeKmerDir, binNo);
+//        append(rawUniqKmerFile, ".fa.gz");
+//
+//        SeqFileOut rawFileOut(toCString(rawUniqKmerFile));
 
 
         CharString fastaFile;
@@ -309,8 +317,8 @@ inline void get_unique_kmers(Options & options)
             append (msg, fastaFile);
             throw toCString(msg);
         }
-        uint32_t counter = 0;
-        uint32_t uniq_counter = 0;
+//        uint32_t counter = 0;
+//        uint32_t uniq_counter = 0;
         StringSet<CharString> ids;
         StringSet<IupacString> seqs;
 
@@ -322,7 +330,7 @@ inline void get_unique_kmers(Options & options)
 //            ++counter;
             readRecords(ids, seqs, seqFileIn, batchSize);
             uint32_t len = length(seqs);
-            counter += len;
+            kmer_counts[binNo] += len;
             for(uint32_t i = 0; i<len; ++i)
             {
                 bool uniq = true;
@@ -340,8 +348,8 @@ inline void get_unique_kmers(Options & options)
                 }
                 if (uniq)
                 {
-                    writeRecord(rawFileOut, counter, seqs[i]);
-                    ++uniq_counter;
+//                    writeRecord(rawFileOut, counter, seqs[i]);
+                    ++uniq_counts[binNo];
                 }
                 clear(finder);
             }
@@ -349,9 +357,20 @@ inline void get_unique_kmers(Options & options)
             clear(seqs);
         }
         close(seqFileIn);
-        close(rawFileOut);
-        std::cerr << counter <<" kmers from bin " << binNo << std::endl;
-        std::cerr << uniq_counter <<" unique kmers from bin " << binNo << std::endl;
+//        close(rawFileOut);
+//        std::cerr << counter <<" kmers from bin " << binNo << std::endl;
+//        std::cerr << uniq_counter <<" unique kmers from bin " << binNo << std::endl;
+        }));
+    }
+    for (auto &&task : tasks)
+    {
+        task.get();
+    }
+
+    std::cout << "binNo\tkmer count\tuniq count\n";
+    for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
+    {
+        std::cout << binNo  << "\t" <<  kmer_counts[binNo] << "\t" << uniq_counts[binNo] << std::endl ;
     }
 }
 
@@ -374,7 +393,6 @@ inline void build_filter(Options & options, TFilter & filter)
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
     {
         tasks.emplace_back(std::async([=, &thread_limiter, &filter] {
-
             Critical_section _(thread_limiter);
 
             Timer<double>       binTimer;
