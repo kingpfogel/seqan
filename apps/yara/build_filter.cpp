@@ -70,7 +70,7 @@ using namespace seqan;
 
 struct Options
 {
-    CharString      contigsDir;
+    CharString      kmersDir;
     CharString      bigIndexDir;
     CharString      indicesDir;
     CharString      uniqeKmerDir;
@@ -189,7 +189,7 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
     getOptionValue(options.verbose, parser, "verbose");
 
     // Parse contigs input file.
-    getArgumentValue(options.contigsDir, parser, 0);
+    getArgumentValue(options.kmersDir, parser, 0);
     getArgumentValue(options.indicesDir, parser, 1);
     getArgumentValue(options.uniqeKmerDir, parser, 2);
     getArgumentValue(options.bigIndexDir, parser, 3);
@@ -198,7 +198,7 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
     getOptionValue(options.filterFile, parser, "output-file");
     if (!isSet(parser, "output-file"))
     {
-        options.filterFile = trimExtension(options.contigsDir);
+        options.filterFile = trimExtension(options.kmersDir);
         append(options.filterFile, "bloom.filter");
     }
 
@@ -244,9 +244,9 @@ inline void get_unique_kmers(Options & options)
     open(limits, toCString(contigsLimitFile), OPEN_RDONLY);
 
     std::cout << limits[1] << ", "  << limits[0] << ", "  << limits[2] << "\n";
-    std::string comExt = commonExtension(options.contigsDir, options.numberOfBins);
+    std::string comExt = commonExtension(options.kmersDir, options.numberOfBins);
     std::map<CharString, uint32_t> bin_map;
-    std::unordered_map<uint32_t, uint32_t> big_bin_map;
+    std::map<uint32_t, uint32_t> big_bin_map;
 
     typedef SeqStore<void, YaraContigsConfig<> >                    TContigs;
 
@@ -263,8 +263,8 @@ inline void get_unique_kmers(Options & options)
         for (uint32_t i = 0; i < length(tmpContigs.names); ++i)
         {
             CharString s = (CharString)tmpContigs.names[i];
-//            std::cout  << binNo << "\t"  << s << std::endl;
             bin_map[s] = binNo;
+//            std::cout << "small i = " << i  << "Bin " << binNo << "\tRef Name " << s << std::endl ;
         }
     }
 
@@ -276,78 +276,82 @@ inline void get_unique_kmers(Options & options)
     for (uint32_t i = 0; i < length(allContigs.names); ++i)
     {
         CharString s = (CharString)allContigs.names[i];
-//        std::cout << i << "\t"  << bin_map[s] << "\t"  << s << "\t" << std::endl;
         big_bin_map[i] = bin_map[s];
+//        if(bin_map[s] == 0)
+//        std::cout << "Big i = " << i  << "Bin " << bin_map[s] << "\tRef Name " << s << std::endl ;
     }
 
     TIndex big_fm_index;
     if (!open(big_fm_index, toCString(options.bigIndexDir), OPEN_RDONLY))
         throw "ERROR: Could not open the index.";
 
-
+    Finder<TIndex> finder(big_fm_index);
+    typename Iterator<TIndex, TopDown<> >::Type fm_iter(big_fm_index);
 
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
     {
-            uint32_t batchSize = 1000000;
+        uint32_t batchSize = 1000000;
 
-            CharString rawUniqKmerFile;
-            appendFileName(rawUniqKmerFile, options.uniqeKmerDir, binNo);
-            append(rawUniqKmerFile, ".raw.gz");
+        CharString rawUniqKmerFile;
+        appendFileName(rawUniqKmerFile, options.uniqeKmerDir, binNo);
+        append(rawUniqKmerFile, ".fa.gz");
 
-            SeqFileOut rawFileOut(toCString(rawUniqKmerFile));
+        SeqFileOut rawFileOut(toCString(rawUniqKmerFile));
 
 
-            CharString fastaFile;
-            appendFileName(fastaFile, options.contigsDir, binNo);
-            append(fastaFile, comExt);
-            SeqFileIn seqFileIn;
-            if (!open(seqFileIn, toCString(fastaFile)))
+        CharString fastaFile;
+        appendFileName(fastaFile, options.kmersDir, binNo);
+        append(fastaFile, comExt);
+        SeqFileIn seqFileIn;
+        if (!open(seqFileIn, toCString(fastaFile)))
+        {
+            CharString msg = "Unable to open contigs File: ";
+            append (msg, fastaFile);
+            throw toCString(msg);
+        }
+        uint32_t counter = 0;
+        uint32_t uniq_counter = 0;
+        StringSet<CharString> ids;
+        StringSet<IupacString> seqs;
+
+        while(!atEnd(seqFileIn))
+        {
+//            CharString id;
+//            IupacString seq;
+//            readRecord(id, seq, seqFileIn);
+//            ++counter;
+            readRecords(ids, seqs, seqFileIn, batchSize);
+            uint32_t len = length(seqs);
+            counter += len;
+            for(uint32_t i = 0; i<len; ++i)
             {
-                CharString msg = "Unable to open contigs File: ";
-                append (msg, fastaFile);
-                throw toCString(msg);
-            }
-            uint32_t counter = 0;
-            uint32_t uniq_counter = 0;
-            StringSet<CharString> ids;
-            StringSet<IupacString> seqs;
-            StringSet<bool>       uniqs;
-            while(!atEnd(seqFileIn))
-            {
-                readRecords(ids, seqs, seqFileIn, batchSize);
-                uint32_t len = length(seqs);
-                counter += len;
-
-                for(uint32_t i = 0; i<len; ++i)
+                bool uniq = true;
+                while (find(finder, seqs[i]))
                 {
-                    bool uniq = true;
-                    typename Iterator<TIndex, TopDown<> >::Type fm_iter(big_fm_index);
-                    if (goDown(fm_iter, seqs[i]))
+                    auto && pos = position(finder);
+                    uint32_t rID = getValueI1(pos);
+                    uint32_t bi = big_bin_map[rID];
+
+                    if (binNo != bi)
                     {
-                        auto occ = getOccurrences(fm_iter);
-                        for (auto o : occ)
-                        {
-                            if (big_bin_map[(int)o.i1] != binNo)
-                            {
-                                uniq = false;
-                                break;
-                            }
-                        }
-                        if (uniq)
-                        {
-                            writeRecord(rawFileOut, counter, seqs[i]);
-                            ++uniq_counter;
-                        }
+                        uniq = false;
+                        break;
                     }
                 }
-
-                clear(ids);
-                clear(seqs);
+                if (uniq)
+                {
+                    writeRecord(rawFileOut, counter, seqs[i]);
+                    ++uniq_counter;
+                }
+                clear(finder);
             }
-            close(seqFileIn);
-            close(rawFileOut);
-            std::cerr << counter <<" kmers from bin " << binNo << std::endl;
-            std::cerr << uniq_counter <<" unique kmers from bin " << binNo << std::endl;
+            clear(ids);
+            clear(seqs);
+        }
+        close(seqFileIn);
+        close(rawFileOut);
+        std::cerr << counter <<" kmers from bin " << binNo << std::endl;
+        std::cerr << uniq_counter <<" unique kmers from bin " << binNo << std::endl;
     }
 }
 
@@ -357,7 +361,7 @@ inline void get_unique_kmers(Options & options)
 template <typename TFilter>
 inline void build_filter(Options & options, TFilter & filter)
 {
-    std::string comExt = commonExtension(options.contigsDir, options.numberOfBins);
+    std::string comExt = commonExtension(options.kmersDir, options.numberOfBins);
 
     Semaphore thread_limiter(options.threadsCount);
     std::vector<std::future<void>> tasks;
@@ -377,7 +381,7 @@ inline void build_filter(Options & options, TFilter & filter)
             start (binTimer);
 
             CharString fastaFile;
-            appendFileName(fastaFile, options.contigsDir, binNo);
+            appendFileName(fastaFile, options.kmersDir, binNo);
             append(fastaFile, comExt);
 
             filter.addFastaFile(fastaFile, binNo);
