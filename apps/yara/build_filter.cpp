@@ -312,9 +312,10 @@ inline void get_unique_kmers(Options & options)
         append(fastaFile, comExt);
         SeqFileIn seqFileIn;
         if (!open(seqFileIn, toCString(fastaFile)))
-            std:cerr <<"Unable to open contigs File: " << toCString(fastaFile) << std::endl;
-//        uint32_t counter = 0;
-//        uint32_t uniq_counter = 0;
+        {
+            std::cerr <<"Unable to open contigs File: " << toCString(fastaFile) << std::endl;
+            exit(1);
+        }
         StringSet<CharString> ids;
         StringSet<IupacString> seqs;
 
