@@ -319,8 +319,8 @@ inline void get_unique_kmers(Options & options)
         StringSet<CharString> ids;
         StringSet<IupacString> seqs;
 
-//        while(!atEnd(seqFileIn))
-//        {
+        while(!atEnd(seqFileIn))
+        {
 //            CharString id;
 //            IupacString seq;
 //            readRecord(id, seq, seqFileIn);
@@ -353,7 +353,7 @@ inline void get_unique_kmers(Options & options)
             }
             clear(ids);
             clear(seqs);
-//        }
+        }
         close(seqFileIn);
 //        close(rawFileOut);
 //        std::cerr << counter <<" kmers from bin " << binNo << std::endl;
