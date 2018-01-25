@@ -294,7 +294,7 @@ inline void get_unique_kmers(Options & options)
 
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
     {
-        tasks.emplace_back(std::async([=, &thread_limiter, &uniq_counts, &kmer_counts, &big_bin_map] {
+        tasks.emplace_back(std::async([=, &thread_limiter, &uniq_counts, &kmer_counts] {
         Critical_section _(thread_limiter);
 
         uint32_t batchSize = 1000000;
@@ -338,9 +338,9 @@ inline void get_unique_kmers(Options & options)
                 {
                     auto && pos = position(finder);
                     uint32_t rID = getValueI1(pos);
-                    uint32_t bi = big_bin_map[rID];
+                    auto bi = big_bin_map.find(rID);
 
-                    if (binNo != bi)
+                    if(bi != big_bin_map.end() && binNo != bi->second)
                     {
                         uniq = false;
                         break;
