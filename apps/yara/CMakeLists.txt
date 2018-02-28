@@ -1,23 +1,17 @@
 # ===========================================================================
 #                  SeqAn - The Library for Sequence Analysis
 # ===========================================================================
-# File: /apps/yara/CMakeLists.txt
 #
-# CMakeLists.txt file for yara.
+# CMakeLists.txt file for unique_kmers.
 # ===========================================================================
 
 cmake_minimum_required (VERSION 3.0.0)
 project (seqan_apps_yara CXX)
-message (STATUS "Configuring apps/yara")
+message (STATUS "Configuring unique_kmers")
 
 # ----------------------------------------------------------------------------
 # Dependencies
 # ----------------------------------------------------------------------------
-
-if (COMPILER_MSVC)
-    message (STATUS "Yara is currently not build on Microsoft Visual because it requires OpenMP 3.0.")
-    return ()
-endif ()
 
 # Search SeqAn and select dependencies.
 if (NOT "${SEQAN_BUILD_SYSTEM}" STREQUAL "DEVELOP")
@@ -47,28 +41,6 @@ endif (NOT BZIP2_FOUND)
 # ----------------------------------------------------------------------------
 
 set (SEQAN_APP_VERSION "1.0.0")
-
-option (YARA_LARGE_CONTIGS "Set to OFF to disable support for more than 32k contigs or contigs longer than 4Gbp." ON)
-if (YARA_LARGE_CONTIGS AND NOT SEQAN_TRAVIS_BUILD)
-  add_definitions (-DYARA_LARGE_CONTIGS=1)
-endif (YARA_LARGE_CONTIGS AND NOT SEQAN_TRAVIS_BUILD)
-
-# default values for distributed mapper (building k-mer index)
-option (YARA_DIST_NUM_OF_BINS "The number of bins to consider for the distributed mapper" 10)
-option (YARA_DIST_K_MER_LENGTH "The k-mer length" 10)
-option (YARA_DIST_INTIAL_ELEMENT_SIZE "The intial mapper size" 1000000)
-
-IF(YARA_DIST_NUM_OF_BINS)
-    add_definitions (-DYARA_DIST_NUM_OF_BINS=${YARA_DIST_NUM_OF_BINS})
-ENDIF(YARA_DIST_NUM_OF_BINS)
-
-IF(YARA_DIST_K_MER_LENGTH)
-add_definitions (-DYARA_DIST_K_MER_LENGTH=${YARA_DIST_K_MER_LENGTH})
-ENDIF(YARA_DIST_K_MER_LENGTH)
-
-IF(YARA_DIST_INTIAL_ELEMENT_SIZE)
-add_definitions (-DYARA_DIST_INTIAL_ELEMENT_SIZE=${YARA_DIST_INTIAL_ELEMENT_SIZE})
-ENDIF(YARA_DIST_INTIAL_ELEMENT_SIZE)
 
 # ----------------------------------------------------------------------------
 # Disable Compiler Warnings
@@ -102,156 +74,29 @@ add_definitions (-DSEQAN_APP_VERSION="${SEQAN_APP_VERSION}")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SEQAN_CXX_FLAGS}")
 
 # Update the list of file names below if you add source files to your application.
-add_executable(yara_indexer indexer.cpp
-                            misc_tags.h
-                            misc_timer.h
-                            misc_options.h
-                            misc_types.h
+add_executable(unique_kmers unique_kmers.cpp
                             store_seqs.h
+                            misc_timer.h
+                            misc_types.h
                             bits_matches.h
+                            misc_options.h
+                            misc_options_dis.h
+                            kdx_filter.h
+                            bloom_filter.h
                             index_fm.h)
 
-add_executable(yara_indexer_dis indexer_dis.cpp
-                                misc_tags.h
-                                misc_timer.h
-                                misc_options.h
-                                misc_options_dis.h
-                                misc_types.h
-                                store_seqs.h
-                                bits_matches.h
-                                index_fm.h)
-
-add_executable(yara_build_filter build_filter.cpp
-                                 misc_timer.h
-                                 misc_options.h
-                                 misc_options_dis.h
-                                 misc_types.h
-                                 store_seqs.h
-                                 bits_matches.h
-                                 kdx_filter.h
-                                 bloom_filter.h)
-
-add_executable(yara_update_filter update_filter.cpp
-                                  misc_timer.h
-                                  misc_options.h
-                                  misc_options_dis.h
-                                  misc_types.h
-                                  store_seqs.h
-                                  bits_matches.h
-                                  kdx_filter.h
-                                  bloom_filter.h)
-
-add_executable(yara_mapper    mapper.cpp
-                              mapper.h
-                              mapper_collector.h
-                              mapper_classifier.h
-                              mapper_ranker.h
-                              mapper_filter.h
-                              mapper_extender.h
-                              mapper_verifier.h
-                              mapper_aligner.h
-                              mapper_writer.h
-                              basic_alphabet.h
-                              file_pair.h
-                              file_prefetched.h
-                              store_seqs.h
-                              misc_tags.h
-                              misc_timer.h
-                              misc_options.h
-                              misc_types.h
-                              bits_reads.h
-                              bits_hits.h
-                              bits_matches.h
-                              bits_context.h
-                              bits_seeds.h
-                              bits_bucket.h
-                              find_extender.h
-                              find_verifier.h
-                              index_fm.h)
-
-add_executable(yara_mapper_dis  mapper_dis.cpp
-                                mapper_dis.h
-                                mapper.h
-                                mapper_collector.h
-                                mapper_classifier.h
-                                mapper_ranker.h
-                                mapper_filter.h
-                                mapper_extender.h
-                                mapper_verifier.h
-                                mapper_aligner.h
-                                mapper_writer.h
-                                basic_alphabet.h
-                                file_pair.h
-                                file_prefetched.h
-                                store_seqs.h
-                                misc_tags.h
-                                misc_timer.h
-                                misc_options.h
-                                misc_options_dis.h
-                                kdx_filter.h
-                                bloom_filter.h
-                                misc_types.h
-                                bits_reads.h
-                                bits_hits.h
-                                bits_matches.h
-                                bits_context.h
-                                bits_seeds.h
-                                bits_bucket.h
-                                find_extender.h
-                                find_verifier.h
-                                index_fm.h)
-
 # Add dependencies found by find_package (SeqAn).
-target_link_libraries (yara_indexer ${SEQAN_LIBRARIES})
-target_link_libraries (yara_indexer_dis ${SEQAN_LIBRARIES})
-target_link_libraries (yara_build_filter ${SEQAN_LIBRARIES})
-target_link_libraries (yara_update_filter ${SEQAN_LIBRARIES})
-target_link_libraries (yara_mapper ${SEQAN_LIBRARIES})
-target_link_libraries (yara_mapper_dis ${SEQAN_LIBRARIES})
+target_link_libraries (unique_kmers ${SEQAN_LIBRARIES})
 
-
-# ----------------------------------------------------------------------------
-# Installation
-# ----------------------------------------------------------------------------
-
-# Set variables for installing, depending on the selected build type.
-if (NOT SEQAN_PREFIX_SHARE_DOC)
-  seqan_setup_install_vars (yara)
-endif (NOT SEQAN_PREFIX_SHARE_DOC)
-
-# Install yara in ${PREFIX}/bin directory
-install (TARGETS yara_indexer yara_indexer_dis yara_build_filter yara_update_filter yara_mapper yara_mapper_dis 
-         DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-# Install non-binary files for the package to "." for app builds and
-# ${PREFIX}/share/doc/yara for SeqAn release builds.
-install (FILES LICENSE README.rst
-         DESTINATION ${SEQAN_PREFIX_SHARE_DOC})
 
 # ----------------------------------------------------------------------------
 # App Test
 # ----------------------------------------------------------------------------
 
-seqan_add_app_test (yara)
-
 # ----------------------------------------------------------------------------
 # Setup Common Tool Description for Generic Workflow Nodes
 # ----------------------------------------------------------------------------
 
-# Include executable yara_mapper in CTD structure.
-set (SEQAN_CTD_EXECUTABLES ${SEQAN_CTD_EXECUTABLES}
-                           yara_indexer yara_indexer_dis yara_build_filter yara_update_filter yara_mapper yara_mapper_dis CACHE INTERNAL "")
-
 # ----------------------------------------------------------------------------
 # CPack Install
 # ----------------------------------------------------------------------------
-
-if (SEQAN_BUILD_SYSTEM STREQUAL "APP:yara")
-  set (CPACK_PACKAGE_NAME "yara")
-  set (CPACK_PACKAGE_DESCRIPTION_SUMMARY "Yara - Yet Another Read Aligner")
-  set (CPACK_DEBIAN_PACKAGE_MAINTAINER "Enrico Siragusa <enrico.siragusa@fu-berlin.de>")
-  set (CPACK_PACKAGE_VENDOR "SeqAn Team, FU Berlin")
-  set (CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README.rst")
-
-  seqan_configure_cpack_app (yara "yara")
-endif (SEQAN_BUILD_SYSTEM STREQUAL "APP:yara")
