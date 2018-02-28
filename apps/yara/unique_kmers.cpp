@@ -152,7 +152,8 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
 // ----------------------------------------------------------------------------
 inline void get_unique_kmers(Options & options)
 {
-    typedef YaraFMConfig<uint16_t, uint32_t, uint64_t>              TIndexConfig;
+    // typedef YaraFMConfig<uint16_t, uint32_t, uint64_t>              TIndexConfig; // build with large contigs
+    typedef YaraFMConfig<uint16_t, uint32_t, uint32_t>               TIndexConfig; // standard
     typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
     typedef Index<typename TIndexConfig::Text, TIndexSpec>          TIndex;
 
@@ -163,7 +164,7 @@ inline void get_unique_kmers(Options & options)
     append(contigsLimitFile, ".txt.size");
     open(limits, toCString(contigsLimitFile), OPEN_RDONLY);
 
-    std::cout << limits[1] << ", "  << limits[0] << ", "  << limits[2] << "\n";
+    // std::cout << limits[1] << ", "  << limits[0] << ", "  << limits[2] << "\n";
     std::string comExt = commonExtension(options.kmersDir, options.numberOfBins);
     std::map<CharString, uint32_t> bin_map;
     std::map<uint32_t, uint32_t> big_bin_map;
@@ -173,7 +174,6 @@ inline void get_unique_kmers(Options & options)
 
     typedef SeqStore<void, YaraContigsConfig<> >                    TContigs;
 
-
     // Fill bin_map: bin_map[ref_name] = binNo
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
     {
@@ -181,9 +181,8 @@ inline void get_unique_kmers(Options & options)
         appendFileName(fm_index_file, options.indicesDir, binNo);
 
         TContigs tmpContigs;
-
         if (!open(tmpContigs, toCString(fm_index_file), OPEN_RDONLY))
-            throw RuntimeError("Error while opening reference file.");
+            throw RuntimeError("Error while opening tmp_contigs.");
 
         for (uint32_t i = 0; i < length(tmpContigs.names); ++i)
         {
@@ -194,20 +193,22 @@ inline void get_unique_kmers(Options & options)
     }
 
     TContigs allContigs;
-
     if (!open(allContigs, toCString(options.bigIndexDir), OPEN_RDONLY))
-        throw RuntimeError("Error while opening reference file.");
+        throw RuntimeError("Error while opening allContigs.");
 
     // Fill big_bin_map: big_bin_map[FM_ID] = binNo
     for (uint32_t i = 0; i < length(allContigs.names); ++i)
     {
         CharString s = (CharString)allContigs.names[i];
         big_bin_map[i] = bin_map[s];
+        // if (i == 0)
+            // std::cout << "big_bin_map.i = " << i  << "\tBin = " << bin_map[s] << "\tRef Name = " << s << std::endl;
+        // std::cout << i  << "\t" << bin_map[s] << '\n';
     }
 
     TIndex big_fm_index;
     if (!open(big_fm_index, toCString(options.bigIndexDir), OPEN_RDONLY))
-        throw "ERROR: Could not open the index.";
+        throw RuntimeError("Error while opening big_fm_index");
 
 
     Semaphore thread_limiter(options.threadsCount);
@@ -231,21 +232,29 @@ inline void get_unique_kmers(Options & options)
             exit(1);
         }
         StringSet<CharString> ids;
-        StringSet<IupacString> seqs;
+        StringSet<Dna5String> seqs;
 
         while(!atEnd(seqFileIn))
         {
             readRecords(ids, seqs, seqFileIn, batchSize);
+            // reverse(seqs);
             uint32_t len = length(seqs);
             kmer_counts[binNo] += len;
             for(uint32_t i = 0; i<len; ++i)
             {
+                bool found = false;
+                //std::cout << "There should be exactly 100 lines of this" << '\n';
                 bool uniq = true;
                 while (find(finder, seqs[i]))
                 {
+                    found = true;
+                    //std::cout << "There should be at least 100 lines of this" << '\n';
                     auto pos = position(finder);
                     uint32_t rID = getValueI1(pos);
                     auto bi = big_bin_map.find(rID);
+                    // std::cout << binNo << '\t' << rID << '\t' << bi->second << '\n';
+                    // std::cout << "The found rID is " << rID << " The proposed binNo is " << bi->second << '\n';
+                    // std::cout << rID << "\t" << bi->second << '\n';
 
                     if(bi != big_bin_map.end() && binNo != bi->second)
                     {
@@ -257,12 +266,14 @@ inline void get_unique_kmers(Options & options)
                 {
                     ++uniq_counts[binNo];
                 }
-                goBegin(finder);    // move Finder to the beginning of the text
+                if (not found)
+                    std::cout << "kmer " << seqs[i] << " in bin " << binNo << " not found." << '\n';
+                goBegin(finder);
+                clear(finder);    // move Finder to the beginning of the text
             }
             clear(ids);
             clear(seqs);
         }
-        clear(finder);
         close(seqFileIn);
         }));
     }
@@ -274,7 +285,7 @@ inline void get_unique_kmers(Options & options)
     std::cout << "binNo\tkmer count\tuniq count\n";
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
     {
-        std::cout << binNo  << "\t" <<  kmer_counts[binNo] << "\t" << uniq_counts[binNo] << std::endl ;
+        std::cout << binNo  << "\t" <<  kmer_counts[binNo] << "\t\t" << uniq_counts[binNo] << std::endl ;
     }
 }
 
