@@ -51,12 +51,12 @@
 // ----------------------------------------------------------------------------
 // App headers
 // ----------------------------------------------------------------------------
-#include "store_seqs.h"
-#include "misc_types.h"
-#include "bits_matches.h"
-#include "misc_options.h"
-#include "misc_options_dis.h"
-#include "index_fm.h"
+#include "../yara/store_seqs.h"
+#include "../yara/misc_types.h"
+#include "../yara/bits_matches.h"
+#include "../yara/misc_options.h"
+#include "../yara/misc_options_dis.h"
+#include "../yara/index_fm.h"
 
 
 using namespace seqan;
@@ -150,7 +150,7 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
 inline void get_unique_kmers(Options & options)
 {
     // typedef YaraFMConfig<uint16_t, uint32_t, uint64_t>              TIndexConfig; // build with large contigs
-    typedef YaraFMConfig<uint16_t, uint32_t, uint32_t>               TIndexConfig; // standard
+    typedef YaraFMConfig<uint16_t, uint32_t, uint64_t>               TIndexConfig; // standard
     typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
     typedef Index<typename TIndexConfig::Text, TIndexSpec>          TIndex;
 

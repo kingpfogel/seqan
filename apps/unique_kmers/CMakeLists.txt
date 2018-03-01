@@ -69,12 +69,12 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SEQAN_CXX_FLAGS}")
 
 # Update the list of file names below if you add source files to your application.
 add_executable(unique_kmers unique_kmers.cpp
-                            bits_matches.h
-                            index_fm.h
-                            misc_options_dis.h
-                            misc_options.h
-                            misc_types.h
-                            store_seqs.h)
+                            ../yara/bits_matches.h
+                            ../yara/index_fm.h
+                            ../yara/misc_options_dis.h
+                            ../yara/misc_options.h
+                            ../yara/misc_types.h
+                            ../yara/store_seqs.h)
 
 # Add dependencies found by find_package (SeqAn).
 target_link_libraries (unique_kmers ${SEQAN_LIBRARIES})
