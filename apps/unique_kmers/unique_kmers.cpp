@@ -153,6 +153,7 @@ inline void get_unique_kmers(Options & options)
     typedef YaraFMConfig<uint16_t, uint32_t, uint64_t>               TIndexConfig; // standard
     typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
     typedef Index<typename TIndexConfig::Text, TIndexSpec>          TIndex;
+    // TODO MAKE DYNAMIC
 
 
     String<uint64_t> limits;
@@ -161,7 +162,7 @@ inline void get_unique_kmers(Options & options)
     append(contigsLimitFile, ".txt.size");
     open(limits, toCString(contigsLimitFile), OPEN_RDONLY);
 
-    // std::cout << limits[1] << ", "  << limits[0] << ", "  << limits[2] << "\n";
+    std::cout << limits[1] << ", "  << limits[0] << ", "  << limits[2] << "\n";
     std::string comExt = commonExtension(options.kmersDir, options.numberOfBins);
     std::map<CharString, uint32_t> bin_map;
     std::map<uint32_t, uint32_t> big_bin_map;
