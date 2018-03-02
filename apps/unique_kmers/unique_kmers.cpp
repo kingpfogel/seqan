@@ -242,9 +242,13 @@ inline void get_unique_kmers(Options & options)
             {
                 bool found = false;
                 //std::cout << "There should be exactly 100 lines of this" << '\n';
-                bool uniq = true;
+                bool uniq = false;
                 while (find(finder, seqs[i]))
                 {
+                    if (!found)
+                    {
+                        uniq = true;
+                    }
                     found = true;
                     //std::cout << "There should be at least 100 lines of this" << '\n';
                     auto pos = position(finder);
