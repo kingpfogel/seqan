@@ -214,8 +214,8 @@ inline void get_unique_kmers(Options & options)
 
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
     {
-        tasks.emplace_back(std::async([=, &thread_limiter, &uniq_counts, &kmer_counts, &big_fm_index] {
-        Critical_section _(thread_limiter);
+        // tasks.emplace_back(std::async([=, &thread_limiter, &uniq_counts, &kmer_counts, &big_fm_index] {
+        // Critical_section _(thread_limiter);
 
         uint32_t batchSize = 10000;
         Finder<TIndex> finder(big_fm_index);
@@ -273,12 +273,12 @@ inline void get_unique_kmers(Options & options)
             clear(seqs);
         }
         close(seqFileIn);
-        }));
+        // }));
     }
-    for (auto &&task : tasks)
-    {
-        task.get();
-    }
+    // for (auto &&task : tasks)
+    // {
+        // task.get();
+    // }
 
     std::cout << "binNo\tkmer count\tuniq count\n";
     for (uint32_t binNo = 0; binNo < options.numberOfBins; ++binNo)
