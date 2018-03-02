@@ -235,7 +235,7 @@ inline void get_unique_kmers(Options & options)
         while(!atEnd(seqFileIn))
         {
             readRecords(ids, seqs, seqFileIn, batchSize);
-            reverse(seqs);
+            // reverse(seqs);
             uint32_t len = length(seqs);
             kmer_counts[binNo] += len;
             for(uint32_t i = 0; i<len; ++i)
