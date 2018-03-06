@@ -74,6 +74,10 @@ struct Options
     uint32_t        numberOfBins;
     unsigned        threadsCount;
 
+    uint64_t        contigsSize;
+    uint64_t        contigsLength;
+    uint64_t        contigsSum;
+
     Options() :
     numberOfBins(64),
     threadsCount(1)
@@ -143,26 +147,67 @@ parseCommandLine(Options & options, ArgumentParser & parser, int argc, char cons
     return ArgumentParser::PARSE_OK;
 }
 
-
 // ----------------------------------------------------------------------------
 // Function get_unique_kmers()
 // ----------------------------------------------------------------------------
+
 inline void get_unique_kmers(Options & options)
 {
-    // typedef YaraFMConfig<uint16_t, uint32_t, uint64_t>              TIndexConfig; // build with large contigs
-    typedef YaraFMConfig<uint16_t, uint32_t, uint64_t>               TIndexConfig; // standard
-    typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
-    typedef Index<typename TIndexConfig::Text, TIndexSpec>          TIndex;
-    // TODO MAKE DYNAMIC
-
-
     String<uint64_t> limits;
 
     CharString contigsLimitFile(options.bigIndexDir);
     append(contigsLimitFile, ".txt.size");
     open(limits, toCString(contigsLimitFile), OPEN_RDONLY);
 
-    std::cout << limits[1] << ", "  << limits[0] << ", "  << limits[2] << "\n";
+    // std::cout << limits[1] << ", "  << limits[0] << ", "  << limits[2] << "\n";
+
+    options.contigsLength = limits[0];
+    options.contigsSize = limits[1];
+    options.contigsSum = limits[2];
+
+    if (options.contigsSize < MaxValue<uint8_t>::VALUE)
+    {
+        get_unique_kmers<uint8_t>(options);
+    }
+    else
+    {
+        get_unique_kmers<uint16_t>(options);
+    }
+}
+
+template<typename TContigsSize>
+inline void get_unique_kmers(Options & options)
+{
+    if (options.contigsLength < MaxValue<uint32_t>::VALUE)
+    {
+        get_unique_kmers<TContigsSize, uint32_t>(options);
+    }
+    else
+    {
+        get_unique_kmers<TContigsSize, uint64_t>(options);
+    }
+}
+
+template<typename TContigsSize, typename TContigsLen>
+inline void get_unique_kmers(Options & options)
+{
+    if (options.contigsSum < MaxValue<uint32_t>::VALUE)
+    {
+        get_unique_kmers<TContigsSize, TContigsLen, uint32_t>(options);
+    }
+    else
+    {
+        get_unique_kmers<TContigsSize, TContigsLen, uint64_t>(options);
+    }
+}
+
+template<typename TContigsSize, typename TContigsLen, typename TContigsSum>
+void get_unique_kmers(Options & options)
+{
+    typedef YaraFMConfig<TContigsSize, TContigsLen, TContigsSum>    TIndexConfig;
+    typedef FMIndex<void, TIndexConfig>                             TIndexSpec;
+    typedef Index<typename TIndexConfig::Text, TIndexSpec>          TIndex;
+
     std::string comExt = commonExtension(options.kmersDir, options.numberOfBins);
     std::map<CharString, uint32_t> bin_map;
     std::map<uint32_t, uint32_t> big_bin_map;
