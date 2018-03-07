@@ -67,6 +67,8 @@ class KmerFilter<TValue, InterleavedBloomFilter>
 public:
     //!\brief The type of the variables.
     typedef typename Value<KmerFilter>::Type    THValue;
+    // limit for splitting vector
+    THValue limit;
     //!\brief The number of Bins.
     THValue    noOfBins;
     //!\brief The number of hash functions.
@@ -80,7 +82,7 @@ public:
     //!\brief The number of 64 bit blocks needed to represent the number of bins.
     THValue    binWidth;
     //!\brief Bits we need to represent noBins bits. Multiple of intSize.
-    THValue    binBitSize;
+    THValue    blockBitSize;
 
     //!\brief Randomized values for hash functions.
     std::vector<THValue>   preCalcValues;
@@ -90,8 +92,8 @@ public:
     static const THValue   seedValue = 0x90b45d39fb6da1fa;
     //!\brief How many bits we can represent in the biggest unsigned int available.
     static const THValue   intSize = 0x40;
-    //!\brief The bit vector storing the bloom filters.
-    sdsl::bit_vector                    filterVector;
+    //!\brief A vector holding the bit vectors.
+    std::vector<sdsl::bit_vector> filterVector;
     //!\brief Size in bits of the meta data.
     static const uint32_t               filterMetadataSize{256};
     //!\brief A ungapped Shape over our filter alphabet.
@@ -106,8 +108,8 @@ public:
         noOfBins(0),
         noOfHashFunc(0),
         kmerSize(0),
-        noOfBits(0),
-        filterVector(sdsl::bit_vector(0, 0)) {}
+        noOfBits(0)
+        {}
 
     /*!
      * \brief Constructs an IBF given parameters.
@@ -120,10 +122,9 @@ public:
         noOfBins(n_bins),
         noOfHashFunc(n_hash_func),
         kmerSize(kmer_size),
-        noOfBits(vec_size),
-        filterVector(sdsl::bit_vector(vec_size, 0))
+        noOfBits(vec_size)
     {
-            init();
+        init();
     }
 
     //!\brief Copy constructor
@@ -193,10 +194,13 @@ public:
                     hashBlock < noOfBlocks && hashBlock < (taskNo +1) * batchSize;
                     ++hashBlock)
                 {
-                    uint64_t vecPos = hashBlock * binBitSize;
+                    uint64_t vecPos = hashBlock * blockBitSize;
                     for(uint32_t binNo : bins)
                     {
-                        filterVector[vecPos + binNo] = false;
+                        uint64_t access = vecPos + binNo;
+                        uint64_t chunkNo = access / limit;
+                        uint64_t chunkPos = access - chunkNo * limit;
+                        filterVector[chunkNo][chunkPos] = false;
                     }
                 }
             }));
@@ -244,12 +248,18 @@ public:
                 binNo = batchNo * intSize;
                 // get_int(idx, len) returns the integer value of the binary string of length len starting
                 // at position idx, i.e. len+idx-1|_______|idx, Vector is right to left.
-                uint64_t tmp = filterVector.get_int(vecIndices[0], intSize);
+                uint64_t access = vecIndices[0];
+                uint64_t chunkNo = access / limit;
+                uint64_t chunkPos = access - chunkNo * limit;
+                uint64_t tmp = filterVector[chunkNo].get_int(chunkPos, intSize);
 
                 // A k-mer is in a bin of the IBF iff all hash functions return 1 for the bin.
                 for(uint8_t i = 1; i < noOfHashFunc;  ++i)
                 {
-                    tmp &= filterVector.get_int(vecIndices[i], intSize);
+                    access = vecIndices[i];
+                    chunkNo = access / limit;
+                    chunkPos = access - chunkNo * limit;
+                    tmp &= filterVector[chunkNo].get_int(chunkPos, intSize);
                 }
 
                 // Behaviour for a bit shift with >= maximal size is undefined, i.e. shifting a 64 bit integer by 64
@@ -314,8 +324,8 @@ public:
         hash ^= hash >> shiftValue;
         // Bring it back into our vector range (noOfBlocks = possible hash values)
         hash %= noOfBlocks;
-        // Since each block needs binBitSize bits, we multiply to get the correct location
-        hash *= binBitSize;
+        // Since each block needs blockBitSize bits, we multiply to get the correct location
+        hash *= blockBitSize;
     }
 
     /*!
@@ -340,7 +350,10 @@ public:
                 uint64_t vecIndex = preCalcValues[i] * kmerHash;
                 hashToIndex(vecIndex);
                 vecIndex += binNo;
-                filterVector[vecIndex] = 1;
+                uint64_t access = vecIndex;
+                uint64_t chunkNo = access / limit;
+                uint64_t chunkPos = access - chunkNo * limit;
+                filterVector[chunkNo][chunkPos] = 1;
             }
         }
     }
@@ -351,9 +364,17 @@ public:
         // How many blocks of 64 bit do we need to represent our noOfBins
         binWidth = std::ceil((float)noOfBins / intSize);
         // How big is then a block (multiple of 64 bit)
-        binBitSize = binWidth * intSize;
+        blockBitSize = binWidth * intSize;
         // How many hash values can we represent
-        noOfBlocks = (noOfBits - filterMetadataSize) / binBitSize;
+        noOfBlocks = (noOfBits - filterMetadataSize) / blockBitSize;
+
+        limit = std::ceil((float)1048576/blockBitSize) * blockBitSize;
+
+        uint64_t noChunks = std::ceil((float) noOfBits/limit);
+        for (uint64_t i = 0; i < noChunks; ++i)
+        {
+            filterVector.push_back(sdsl::bit_vector(limit, 0));
+        }
 
         preCalcValues.resize(noOfHashFunc);
         for(uint64_t i = 0; i < noOfHashFunc ; i++)
