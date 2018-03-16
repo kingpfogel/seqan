@@ -209,18 +209,14 @@ struct Distributor
     void compress()
     {
         uint64_t chunk = queue.front();
-        // std::get<2>(filterVector[chunk]) = sdsl::sd_vector<>(std::get<1>(filterVector[chunk]));
+        std::get<2>(filterVector[chunk]) = std::make_unique<sdsl::sd_vector<> >(*std::get<1>(filterVector[chunk]));
         sdsl::store_to_file(*std::get<1>(filterVector[chunk]), toCString(PREFIX)+std::to_string(chunk));
-        // sdsl::util::clear(*std::get<1>(filterVector[chunk]));
-        std::get<1>(filterVector[chunk]).reset();
         std::get<1>(filterVector[chunk]) = std::make_unique<sdsl::bit_vector>(0,0);
-        sdsl::util::clear(std::get<2>(filterVector[chunk]));
-        // std::cout << std::get<1>(filterVector[chunk])->size() << '\n';
         std::get<0>(filterVector[chunk]) = true;
         queue.pop_front();
     }
 
-    std::vector<std::tuple<bool,std::unique_ptr<sdsl::bit_vector>, sdsl::sd_vector<> > > filterVector;
+    std::vector<std::tuple<bool,std::unique_ptr<sdsl::bit_vector>, std::unique_ptr<sdsl::sd_vector<> > > > filterVector;
 
     Distributor() {}
 
@@ -243,21 +239,23 @@ struct Distributor
         {
             if (size_check())
             {
-                std::cout << "no comp" << '\n';
                 filterVector.emplace_back(std::make_tuple(false,
                                                        std::make_unique<sdsl::bit_vector>(chunkSize, 0),
-                                                       sdsl::sd_vector<>()));
+                                                       std::make_unique<sdsl::sd_vector<> >()));
                 queue.emplace_back(i);
             }
             else
             {
-                std::cout << "comp" << '\n';
                 compress();
                 filterVector.emplace_back(std::make_tuple(false,
                                                        std::make_unique<sdsl::bit_vector>(chunkSize, 0),
-                                                       sdsl::sd_vector<>()));
+                                                       std::make_unique<sdsl::sd_vector<> >()));
                 queue.emplace_back(i);
             }
+        }
+        while (!queue.empty())
+        {
+            compress();
         }
     }
 
@@ -268,11 +266,11 @@ struct Distributor
         uint64_t chunkPos = access - chunkNo * MAX_VEC;
         if (std::get<0>(filterVector[chunkNo]))
         {
-            return std::get<2>(filterVector[chunkNo]).get_int(chunkPos, len);
+            return std::get<2>(filterVector[chunkNo])->get_int(chunkPos, len);
         }
         else
         {
-            // return std::get<1>(filterVector[chunkNo]).get_int(chunkPos, len);
+            return std::get<1>(filterVector[chunkNo])->get_int(chunkPos, len);
         }
     }
 
@@ -283,11 +281,11 @@ struct Distributor
         uint64_t chunkPos = access - chunkNo * MAX_VEC;
         if (std::get<0>(filterVector[chunkNo]))
         {
-            return std::get<2>(filterVector[chunkNo])[chunkPos];
+            return (*std::get<2>(filterVector[chunkNo]))[chunkPos];
         }
         else
         {
-            // return std::get<1>(filterVector[chunkNo])[chunkPos];
+            return (*std::get<1>(filterVector[chunkNo]))[chunkPos];
         }
     }
 
@@ -307,15 +305,14 @@ struct Distributor
         uint64_t chunkNo = access / chunkSize;
         uint64_t chunkPos = access - chunkNo * chunkSize;
 
-
         if (std::get<0>(filterVector[chunkNo]))
         {
             decompress(chunkNo);
-            // std::get<1>(filterVector[chunkNo])[chunkPos] = value;
+            (*std::get<1>(filterVector[chunkNo]))[chunkPos] = value;
         }
         else
         {
-            // std::get<1>(filterVector[chunkNo])[chunkPos] = value;
+            (*std::get<1>(filterVector[chunkNo]))[chunkPos] = value;
         }
     }
 };
