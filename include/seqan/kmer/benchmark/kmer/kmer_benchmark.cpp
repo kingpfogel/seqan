@@ -57,7 +57,7 @@ static void addKmer_IBF(benchmark::State& state)
     for (uint8_t i = 0; i < state.range(1); ++i)
         appendValue(kmer, TAlphabet(RandomNumber() % ValueSize<TAlphabet>::VALUE));
     for (auto _ : state)
-        addKmer(ibf, kmer, 0);
+        addKmer(ibf, kmer, RandomNumber() % state.range(0));
 }
 
 template <typename TAlphabet>
@@ -81,7 +81,7 @@ static void addKmer_DA(benchmark::State& state)
     for (uint8_t i = 0; i < state.range(1); ++i)
         appendValue(kmer, TAlphabet(RandomNumber() % ValueSize<TAlphabet>::VALUE));
     for (auto _ : state)
-        addKmer(da, kmer, 0);
+        addKmer(da, kmer, RandomNumber() % state.range(0));
 }
 
 template <typename TAlphabet>
@@ -104,7 +104,7 @@ static void IBFArguments(benchmark::internal::Benchmark* b)
             continue;
         for (int32_t k = 20; k <= 20; ++k)
         {
-            for (int32_t bits = 1<<16; bits <= 1<<21; bits <<= 1 )
+            for (int32_t bits = 1<<1; bits <= 1<<1; bits <<= 1 )
             {
                 for (int32_t hashNo = 3; hashNo < 4; ++hashNo)
                 {

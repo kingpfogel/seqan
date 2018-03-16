@@ -52,7 +52,7 @@ int main()
     uint64_t noBins{10};
     uint64_t kmerSize{3};
     uint64_t hashFunc{3};
-    uint64_t bits{11829};
+    uint64_t bits{1ULL<<37};
 
 
     // ==========================================================================
@@ -64,28 +64,28 @@ int main()
     // typedef DirectAddressing       TSpec;
 
     // Empty default constructor
-    KmerFilter<Dna, TSpec> ctor_empty;
+    // KmerFilter<Dna, TSpec> ctor_empty;
     // Default constructor
     // KmerFilter<Dna, TSpec> ctor_default (noBins, hashFunc, kmerSize, bits);
 
     KmerFilter<Dna, TSpec> ctor_default (noBins, hashFunc, kmerSize, bits);
-    KmerFilter<Dna, TSpec> ctor_default_helper1 (noBins, hashFunc, kmerSize, bits);
-    KmerFilter<Dna, TSpec> ctor_default_helper2 (noBins, hashFunc, kmerSize, bits);
+    // KmerFilter<Dna, TSpec> ctor_default_helper1 (noBins, hashFunc, kmerSize, bits);
+    // KmerFilter<Dna, TSpec> ctor_default_helper2 (noBins, hashFunc, kmerSize, bits);
 
     // KmerFilter<Dna, TSpec> ctor_default (noBins, kmerSize);
     // KmerFilter<Dna, TSpec> ctor_default_helper1 (noBins, kmerSize);
     // KmerFilter<Dna, TSpec> ctor_default_helper2 (noBins, kmerSize);
 
     // Copy constructor
-    KmerFilter<Dna, TSpec> ctor_copy (ctor_default);
+    // KmerFilter<Dna, TSpec> ctor_copy (ctor_default);
     // Copy assignment
-    KmerFilter<Dna, TSpec> assignment_copy;
-    assignment_copy = ctor_default;
-    // Move constructor
-    KmerFilter<Dna, TSpec> ctor_move(std::move(ctor_default_helper1));
-    // Move assignment
-    KmerFilter<Dna, TSpec> assignment_move;
-    assignment_move = std::move(ctor_default_helper2);
+    // KmerFilter<Dna, TSpec> assignment_copy;
+    // assignment_copy = ctor_default;
+    // // Move constructor
+    // KmerFilter<Dna, TSpec> ctor_move(std::move(ctor_default_helper1));
+    // // Move assignment
+    // KmerFilter<Dna, TSpec> assignment_move;
+    // assignment_move = std::move(ctor_default_helper2);
 
 
     // ==========================================================================
@@ -97,21 +97,21 @@ int main()
         addFastaFile(ctor_default, toCString(fasta), 1);
         addFastaFile(ctor_default, toCString(fasta), 5);
         addFastaFile(ctor_default, toCString(fasta), 8);
-        addFastaFile(ctor_copy, toCString(fasta), 2);
-        addFastaFile(assignment_copy, toCString(fasta), 3);
-        addFastaFile(ctor_move, toCString(fasta), 0);
-        addFastaFile(assignment_move, toCString(fasta), 9);
+        // addFastaFile(ctor_copy, toCString(fasta), 2);
+        // addFastaFile(assignment_copy, toCString(fasta), 3);
+        // addFastaFile(ctor_move, toCString(fasta), 0);
+        // addFastaFile(assignment_move, toCString(fasta), 9);
 
 
-    // ==========================================================================
-    // Test storing and retrieving
-    // ==========================================================================
-    std::cout << "Testing store/retrieve" << '\n';
-
-    CharString store1("file.dat");
-    store(ctor_default, toCString(store1));
-    retrieve(ctor_empty, toCString(store1));
-    std::remove(toCString(store1));
+    // // ==========================================================================
+    // // Test storing and retrieving
+    // // ==========================================================================
+    // std::cout << "Testing store/retrieve" << '\n';
+    //
+    // CharString store1("file.dat");
+    // store(ctor_default, toCString(store1));
+    // retrieve(ctor_empty, toCString(store1));
+    // std::remove(toCString(store1));
 
 
     // ==========================================================================
@@ -144,7 +144,7 @@ int main()
     bool ctor_default_any = false;
     for (uint64_t i = 0; i < ctor_default.noOfBlocks * ctor_default.noOfBins; ++i)
     {
-        if (ctor_default.filterVector[i])
+        if (ctor_default.filterVector.get_pos(i))
         {
             ctor_default_any = true;
             break;
@@ -159,7 +159,7 @@ int main()
     ctor_default_any = false;
     for (uint64_t i = 0; i < ctor_default.noOfBlocks * ctor_default.noOfBins; ++i)
     {
-        if (ctor_default.filterVector[i])
+        if (ctor_default.filterVector.get_pos(i))
         {
             ctor_default_any = true;
             break;

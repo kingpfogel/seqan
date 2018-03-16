@@ -41,6 +41,285 @@
 // --------------------------------------------------------------------------
 namespace seqan{
 
+// struct Distributor
+// {
+//     static const uint64_t MAX_MEM = 1ULL<<35; // 4 GiB
+//     static const uint64_t MAX_VEC = 1ULL<<32; // 0.5 GiB
+//     static const uint64_t MAX_NUM = MAX_MEM / MAX_VEC; // 8
+//     static const uint64_t FILTER_METADATA_SIZE = 256;
+//     static const uint64_t INT_SIZE = 0x40; // 64
+//
+//     uint64_t noOfBins;
+//     uint64_t noOfBits;
+//     uint64_t binWidth;
+//     uint64_t blockBitSize;
+//     uint64_t noOfBlocks;
+//     uint64_t noOfChunks;
+//     uint64_t chunkSize;
+//
+//     std::list<uint64_t> queue;
+//
+//     void decompress(uint64_t chunk)
+//     {
+//         if (queue.size() < MAX_NUM)
+//         {
+//             std::get<1>(filterVector[chunk]) = static_cast<sdsl::bit_vector>(std::get<2>(filterVector[chunk]));
+//             std::get<0>(filterVector[chunk]) = false;
+//             queue.emplace_back(chunk);
+//         }
+//         else
+//         {
+//             compress();
+//             decompress(chunk);
+//         }
+//     }
+//
+//     void compress()
+//     {
+//         uint64_t chunk = queue.front();
+//         std::get<2>(filterVector[chunk]) = sdsl::sd_vector<>(std::get<1>(filterVector[chunk]));
+//         std::get<1>(filterVector[chunk]) = sdsl::bit_vector();
+//         std::get<0>(filterVector[chunk]) = true;
+//         queue.pop_front();
+//     }
+//
+//     std::vector<std::tuple<bool,sdsl::bit_vector, sdsl::sd_vector<> > > filterVector;
+//
+//     Distributor() {}
+//
+//     Distributor(uint64_t bins, uint64_t bits):
+//         noOfBins(bins),
+//         noOfBits(bits)
+//     {
+//         // How many blocks of 64 bit do we need to represent our noOfBins
+//         binWidth = std::ceil((float)noOfBins / INT_SIZE);
+//         // How big is then a block (multiple of 64 bit)
+//         blockBitSize = binWidth * INT_SIZE;
+//         // How many hash values can we represent
+//         noOfBlocks = (noOfBits - FILTER_METADATA_SIZE) / blockBitSize;
+//
+//         // We need to split at the end of a block.
+//         chunkSize = std::ceil((float)MAX_VEC/blockBitSize) * blockBitSize;
+//         // This is how many chunks we need.
+//         uint64_t noChunks = std::ceil((float) noOfBits/chunkSize);
+//         for (uint64_t i = 0; i < noChunks; ++i)
+//         {
+//             filterVector.push_back(std::make_tuple(true,
+//                                                    sdsl::bit_vector(),
+//                                                    sdsl::sd_vector<>(sdsl::bit_vector(chunkSize, 0))));
+//         }
+//     }
+//
+//     auto get_int(uint64_t idx, uint64_t len)
+//     {
+//         uint64_t access = idx;
+//         uint64_t chunkNo = access / MAX_VEC;
+//         uint64_t chunkPos = access - chunkNo * MAX_VEC;
+//         if (std::get<0>(filterVector[chunkNo]))
+//         {
+//             return std::get<2>(filterVector[chunkNo]).get_int(chunkPos, len);
+//         }
+//         else
+//         {
+//             return std::get<1>(filterVector[chunkNo]).get_int(chunkPos, len);
+//         }
+//     }
+//
+//     uint64_t get_pos(uint64_t vecIndex)
+//     {
+//         uint64_t access = vecIndex;
+//         uint64_t chunkNo = access / MAX_VEC;
+//         uint64_t chunkPos = access - chunkNo * MAX_VEC;
+//         if (std::get<0>(filterVector[chunkNo]))
+//         {
+//             return std::get<2>(filterVector[chunkNo])[chunkPos];
+//         }
+//         else
+//         {
+//             return std::get<1>(filterVector[chunkNo])[chunkPos];
+//         }
+//     }
+//
+//     void set_pos(uint64_t vecIndex)
+//     {
+//         set_impl(vecIndex, true);
+//     }
+//
+//     void unset_pos(uint64_t vecIndex)
+//     {
+//         set_impl(vecIndex, false);
+//     }
+//
+//     void set_impl(uint64_t vecIndex, bool value)
+//     {
+//         uint64_t access = vecIndex;
+//         uint64_t chunkNo = access / MAX_VEC;
+//         uint64_t chunkPos = access - chunkNo * MAX_VEC;
+//
+//         if (std::get<0>(filterVector[chunkNo]))
+//         {
+//             decompress(chunkNo);
+//             std::get<1>(filterVector[chunkNo])[chunkPos] = value;
+//         }
+//         else
+//         {
+//             std::get<1>(filterVector[chunkNo])[chunkPos] = value;
+//         }
+//     }
+// };
+struct Distributor
+{
+    static const uint64_t MAX_MEM = 1ULL<<35; // 4 GiB
+    static const uint64_t MAX_VEC = 1ULL<<32; // 0.5 GiB
+    static const uint64_t MAX_NUM = MAX_MEM / MAX_VEC; // 8
+    static const uint64_t FILTER_METADATA_SIZE = 256;
+    static const uint64_t INT_SIZE = 0x40; // 64
+    CharString PREFIX{"test"};
+
+    uint64_t noOfBins;
+    uint64_t noOfBits;
+    uint64_t binWidth;
+    uint64_t blockBitSize;
+    uint64_t noOfBlocks;
+    uint64_t noOfChunks;
+    uint64_t chunkSize;
+
+    std::list<uint64_t> queue;
+
+    inline bool size_check()
+    {
+        return queue.size() < MAX_NUM;
+    }
+
+    void decompress(uint64_t chunk)
+    {
+        if (size_check())
+        {
+            sdsl::load_from_file(*std::get<1>(filterVector[chunk]), toCString(PREFIX)+std::to_string(chunk));
+            std::get<0>(filterVector[chunk]) = false;
+            queue.emplace_back(chunk);
+        }
+        else
+        {
+            compress();
+            decompress(chunk);
+        }
+    }
+
+    void compress()
+    {
+        uint64_t chunk = queue.front();
+        // std::get<2>(filterVector[chunk]) = sdsl::sd_vector<>(std::get<1>(filterVector[chunk]));
+        sdsl::store_to_file(*std::get<1>(filterVector[chunk]), toCString(PREFIX)+std::to_string(chunk));
+        // sdsl::util::clear(*std::get<1>(filterVector[chunk]));
+        std::get<1>(filterVector[chunk]).reset();
+        std::get<1>(filterVector[chunk]) = std::make_unique<sdsl::bit_vector>(0,0);
+        sdsl::util::clear(std::get<2>(filterVector[chunk]));
+        // std::cout << std::get<1>(filterVector[chunk])->size() << '\n';
+        std::get<0>(filterVector[chunk]) = true;
+        queue.pop_front();
+    }
+
+    std::vector<std::tuple<bool,std::unique_ptr<sdsl::bit_vector>, sdsl::sd_vector<> > > filterVector;
+
+    Distributor() {}
+
+    Distributor(uint64_t bins, uint64_t bits):
+        noOfBins(bins),
+        noOfBits(bits)
+    {
+        // How many blocks of 64 bit do we need to represent our noOfBins
+        binWidth = std::ceil((float)noOfBins / INT_SIZE);
+        // How big is then a block (multiple of 64 bit)
+        blockBitSize = binWidth * INT_SIZE;
+        // How many hash values can we represent
+        noOfBlocks = (noOfBits - FILTER_METADATA_SIZE) / blockBitSize;
+
+        // We need to split at the end of a block.
+        chunkSize = std::ceil((float)MAX_VEC/blockBitSize) * blockBitSize;
+        // This is how many chunks we need.
+        uint64_t noChunks = std::ceil((float) noOfBits/chunkSize);
+        for (uint64_t i = 0; i < noChunks; ++i)
+        {
+            if (size_check())
+            {
+                std::cout << "no comp" << '\n';
+                filterVector.emplace_back(std::make_tuple(false,
+                                                       std::make_unique<sdsl::bit_vector>(chunkSize, 0),
+                                                       sdsl::sd_vector<>()));
+                queue.emplace_back(i);
+            }
+            else
+            {
+                std::cout << "comp" << '\n';
+                compress();
+                filterVector.emplace_back(std::make_tuple(false,
+                                                       std::make_unique<sdsl::bit_vector>(chunkSize, 0),
+                                                       sdsl::sd_vector<>()));
+                queue.emplace_back(i);
+            }
+        }
+    }
+
+    auto get_int(uint64_t idx, uint64_t len)
+    {
+        uint64_t access = idx;
+        uint64_t chunkNo = access / MAX_VEC;
+        uint64_t chunkPos = access - chunkNo * MAX_VEC;
+        if (std::get<0>(filterVector[chunkNo]))
+        {
+            return std::get<2>(filterVector[chunkNo]).get_int(chunkPos, len);
+        }
+        else
+        {
+            // return std::get<1>(filterVector[chunkNo]).get_int(chunkPos, len);
+        }
+    }
+
+    uint64_t get_pos(uint64_t vecIndex)
+    {
+        uint64_t access = vecIndex;
+        uint64_t chunkNo = access / MAX_VEC;
+        uint64_t chunkPos = access - chunkNo * MAX_VEC;
+        if (std::get<0>(filterVector[chunkNo]))
+        {
+            return std::get<2>(filterVector[chunkNo])[chunkPos];
+        }
+        else
+        {
+            // return std::get<1>(filterVector[chunkNo])[chunkPos];
+        }
+    }
+
+    void set_pos(uint64_t vecIndex)
+    {
+        set_impl(vecIndex, true);
+    }
+
+    void unset_pos(uint64_t vecIndex)
+    {
+        set_impl(vecIndex, false);
+    }
+
+    void set_impl(uint64_t vecIndex, bool value)
+    {
+        uint64_t access = vecIndex;
+        uint64_t chunkNo = access / chunkSize;
+        uint64_t chunkPos = access - chunkNo * chunkSize;
+
+
+        if (std::get<0>(filterVector[chunkNo]))
+        {
+            decompress(chunkNo);
+            // std::get<1>(filterVector[chunkNo])[chunkPos] = value;
+        }
+        else
+        {
+            // std::get<1>(filterVector[chunkNo])[chunkPos] = value;
+        }
+    }
+};
+
 /*!
  * \brief Creates and maintains a k-mer directory using an interleaved bloom filter (IBF).
  * Creates a k-mer directory to store occurrence information for k-mers stemming from different bins.
@@ -68,7 +347,7 @@ public:
     //!\brief The type of the variables.
     typedef typename Value<KmerFilter>::Type    THValue;
     // limit for splitting vector
-    THValue limit;
+    THValue    limit;
     //!\brief The number of Bins.
     THValue    noOfBins;
     //!\brief The number of hash functions.
@@ -84,6 +363,8 @@ public:
     //!\brief Bits we need to represent noBins bits. Multiple of intSize.
     THValue    blockBitSize;
 
+    Distributor filterVector;
+
     //!\brief Randomized values for hash functions.
     std::vector<THValue>   preCalcValues;
     //!\brief Shift value used for hash function.
@@ -92,8 +373,10 @@ public:
     static const THValue   seedValue = 0x90b45d39fb6da1fa;
     //!\brief How many bits we can represent in the biggest unsigned int available.
     static const THValue   intSize = 0x40;
+    //!\brief Maximum size of uncompressed bitvector
+    static const uint64_t  SIZE_LIMIT = 1ULL<<32;
     //!\brief A vector holding the bit vectors.
-    std::vector<sdsl::bit_vector> filterVector;
+    // std::vector<sdsl::bit_vector> filterVector;
     //!\brief Size in bits of the meta data.
     static const uint32_t               filterMetadataSize{256};
     //!\brief A ungapped Shape over our filter alphabet.
@@ -197,10 +480,7 @@ public:
                     uint64_t vecPos = hashBlock * blockBitSize;
                     for(uint32_t binNo : bins)
                     {
-                        uint64_t access = vecPos + binNo;
-                        uint64_t chunkNo = access / limit;
-                        uint64_t chunkPos = access - chunkNo * limit;
-                        filterVector[chunkNo][chunkPos] = false;
+                        filterVector.unset_pos(vecPos + binNo);
                     }
                 }
             }));
@@ -217,7 +497,7 @@ public:
      * \param text Text to count occurences for.
      */
     template<typename TString>
-    void whichBins(std::vector<uint64_t> & counts, TString const & text) const
+    void whichBins(std::vector<uint64_t> & counts, TString const & text)
     {
         uint8_t possible = length(text) - kmerSize + 1;
 
@@ -248,18 +528,12 @@ public:
                 binNo = batchNo * intSize;
                 // get_int(idx, len) returns the integer value of the binary string of length len starting
                 // at position idx, i.e. len+idx-1|_______|idx, Vector is right to left.
-                uint64_t access = vecIndices[0];
-                uint64_t chunkNo = access / limit;
-                uint64_t chunkPos = access - chunkNo * limit;
-                uint64_t tmp = filterVector[chunkNo].get_int(chunkPos, intSize);
+                uint64_t tmp = filterVector.get_int(vecIndices[0], intSize);
 
                 // A k-mer is in a bin of the IBF iff all hash functions return 1 for the bin.
                 for(uint8_t i = 1; i < noOfHashFunc;  ++i)
                 {
-                    access = vecIndices[i];
-                    chunkNo = access / limit;
-                    chunkPos = access - chunkNo * limit;
-                    tmp &= filterVector[chunkNo].get_int(chunkPos, intSize);
+                    tmp &= filterVector.get_int(vecIndices[i], intSize);
                 }
 
                 // Behaviour for a bit shift with >= maximal size is undefined, i.e. shifting a 64 bit integer by 64
@@ -303,7 +577,7 @@ public:
      * \param threshold Minimal count (>=) of containing k-mers to report bin as containing text.
      */
     template<typename TString, typename TInt>
-    inline void whichBins(std::vector<bool> & selected, TString const & text, TInt && threshold) const
+    inline void whichBins(std::vector<bool> & selected, TString const & text, TInt && threshold)
     {
         std::vector<uint64_t> counts(noOfBins, 0);
         whichBins(counts, text);
@@ -350,10 +624,7 @@ public:
                 uint64_t vecIndex = preCalcValues[i] * kmerHash;
                 hashToIndex(vecIndex);
                 vecIndex += binNo;
-                uint64_t access = vecIndex;
-                uint64_t chunkNo = access / limit;
-                uint64_t chunkPos = access - chunkNo * limit;
-                filterVector[chunkNo][chunkPos] = 1;
+                filterVector.set_pos(vecIndex);
             }
         }
     }
@@ -361,20 +632,29 @@ public:
     //! \brief Initialises internal variables.
     inline void init()
     {
+        // // How many blocks of 64 bit do we need to represent our noOfBins
+        // binWidth = std::ceil((float)noOfBins / intSize);
+        // // How big is then a block (multiple of 64 bit)
+        // blockBitSize = binWidth * intSize;
+        // // How many hash values can we represent
+        // noOfBlocks = (noOfBits - filterMetadataSize) / blockBitSize;
+        //
+        // // We need to split at the end of a block.
+        // limit = std::ceil((float)SIZE_LIMIT/blockBitSize) * blockBitSize;
+        // // This is how many chunks we need.
+        // uint64_t noChunks = std::ceil((float) noOfBits/limit);
+        // for (uint64_t i = 0; i < noChunks; ++i)
+        // {
+        //     filterVector.push_back(sdsl::bit_vector(limit, 0));
+        // }
+
+        filterVector = Distributor(noOfBins, noOfBits);
         // How many blocks of 64 bit do we need to represent our noOfBins
         binWidth = std::ceil((float)noOfBins / intSize);
         // How big is then a block (multiple of 64 bit)
         blockBitSize = binWidth * intSize;
         // How many hash values can we represent
         noOfBlocks = (noOfBits - filterMetadataSize) / blockBitSize;
-
-        limit = std::ceil((float)1048576/blockBitSize) * blockBitSize;
-
-        uint64_t noChunks = std::ceil((float) noOfBits/limit);
-        for (uint64_t i = 0; i < noChunks; ++i)
-        {
-            filterVector.push_back(sdsl::bit_vector(limit, 0));
-        }
 
         preCalcValues.resize(noOfHashFunc);
         for(uint64_t i = 0; i < noOfHashFunc ; i++)
