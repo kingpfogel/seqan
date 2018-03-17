@@ -50,12 +50,19 @@ int main()
     uint64_t const noOfHashes{3};
     uint64_t const noOfBits{1ULL<<32};
 
-    std::vector<int64_t> addTime;
-    std::vector<int64_t> whichTime;
+    std::vector<int64_t> ibfTime;
+    std::vector<int64_t> daTime;
 
+    CharString storeIBF("IBF.filter");
+    CharString storeDA("DA.filter");
+
+    std::cout << "====================================================================\n"
+              << "====================== Benchmarking addKmer() ======================\n"
+              << "====================================================================\n";
     for (uint64_t r = 0; r < noOfRepeats; ++r)
     {
         KmerFilter<Dna, InterleavedBloomFilter> ibf (noOfBins, noOfHashes, k, noOfBits);
+        KmerFilter<Dna, DirectAddressing> da (noOfBins, k);
 
         auto start = std::chrono::high_resolution_clock::now();
         for(uint64_t i = 0; i < noOfBins; ++i)
@@ -76,9 +83,56 @@ int main()
             std::cout << "Bin " << i << " done." << '\n';
         }
         auto elapsed = std::chrono::high_resolution_clock::now() - start;
-        addTime.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
+        ibfTime.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
 
         start = std::chrono::high_resolution_clock::now();
+        for(uint64_t i = 0; i < noOfBins; ++i)
+        {
+            CharString file("/Users/enricoseiler/dev/eval/64/bins/");
+            if (i < 10)
+            {
+                append(file, CharString("bin_0"));
+            }
+            else
+            {
+                append(file, CharString("bin_"));
+            }
+            append(file, CharString(std::to_string(i)));
+            append(file, CharString(".fasta"));
+
+            addFastaFile(da, toCString(file) , i);
+        }
+        elapsed = std::chrono::high_resolution_clock::now() - start;
+        daTime.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
+
+        store(ibf, toCString(storeIBF));
+        store(da, toCString(storeDA));
+    }
+
+    auto ibfAvg = accumulate(ibfTime.begin(), ibfTime.end(), 0)/ibfTime.size();
+    auto daAvg = accumulate(daTime.begin(), daTime.end(), 0)/daTime.size();
+
+    std::cout << "Average InterleavedBloomFilter: " << ibfAvg << " ms.\n";
+    std::cout << "Average DirectAddressing: " << daAvg << " ms.\n";
+
+    ibfTime.clear();
+    ibfTime.shrink_to_fit();
+    daTime.clear();
+    daTime.shrink_to_fit();
+
+    std::cout << "====================================================================\n"
+              << "===================== Benchmarking whichBins() =====================\n"
+              << "====================================================================\n";
+
+    KmerFilter<Dna, InterleavedBloomFilter> ibf (noOfBins, noOfHashes, k, noOfBits);
+    KmerFilter<Dna, DirectAddressing> da (noOfBins, k);
+
+    retrieve(ibf, toCString(storeIBF));
+    retrieve(da, toCString(storeDA));
+
+    for (uint64_t r = 0; r < noOfRepeats; ++r)
+    {
+        auto start = std::chrono::high_resolution_clock::now();
         for(uint64_t i = 0; i < noOfKmers; ++i)
         {
             CharString file("/Users/enricoseiler/dev/eval/64/reads/");
@@ -108,13 +162,46 @@ int main()
                 auto x = whichBins(ibf, seq, 1);
             }
         }
+        auto elapsed = std::chrono::high_resolution_clock::now() - start;
+        ibfTime.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
+
+        start = std::chrono::high_resolution_clock::now();
+        for(uint64_t i = 0; i < noOfKmers; ++i)
+        {
+            CharString file("/Users/enricoseiler/dev/eval/64/reads/");
+            if (i < 10)
+            {
+                append(file, CharString("bin_0"));
+            }
+            else
+            {
+                append(file, CharString("bin_"));
+            }
+            append(file, CharString(std::to_string(i)));
+            append(file, CharString(".fastq"));
+
+            CharString id;
+            String<Dna> seq;
+            SeqFileIn seqFileIn;
+            if (!open(seqFileIn, toCString(file)))
+            {
+                CharString msg = "Unable to open contigs file: ";
+                append(msg, CharString(file));
+                throw toCString(msg);
+            }
+            while(!atEnd(seqFileIn))
+            {
+                readRecord(id, seq, seqFileIn);
+                auto x = whichBins(da, seq, 1);
+            }
+        }
         elapsed = std::chrono::high_resolution_clock::now() - start;
-        whichTime.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
+        daTime.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
     }
 
-    auto addAvg = accumulate(addTime.begin(), addTime.end(), 0)/addTime.size();
-    auto whichAvg = accumulate(whichTime.begin(), whichTime.end(), 0)/whichTime.size();
+    ibfAvg = accumulate(ibfTime.begin(), ibfTime.end(), 0)/ibfTime.size();
+    daAvg = accumulate(daTime.begin(), daTime.end(), 0)/daTime.size();
 
-    std::cout << "Average addKmer: " << addAvg << " ms.\n";
-    std::cout << "Average whichBins: " << whichAvg << " ms.\n";
+    std::cout << "Average InterleavedBloomFilter: " << ibfAvg << " ms.\n";
+    std::cout << "Average DirectAddressing: " << daAvg << " ms.\n";
 }
