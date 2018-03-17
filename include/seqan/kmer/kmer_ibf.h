@@ -59,7 +59,7 @@ struct Distributor
     uint64_t noOfChunks;
     uint64_t chunkSize;
 
-    std::list<uint64_t> buffer;
+    std::list<std::tuple<uint64_t, bool> > buffer;
     std::list<uint64_t> queue;
 
     inline bool buffer_check()
@@ -142,6 +142,7 @@ struct Distributor
 
     auto get_int(uint64_t idx, uint64_t len)
     {
+        unload();
         uint64_t access = idx;
         uint64_t chunkNo = access / MAX_VEC;
         uint64_t chunkPos = access - chunkNo * MAX_VEC;
@@ -157,6 +158,7 @@ struct Distributor
 
     uint64_t get_pos(uint64_t vecIndex)
     {
+        unload();
         uint64_t access = vecIndex;
         uint64_t chunkNo = access / MAX_VEC;
         uint64_t chunkPos = access - chunkNo * MAX_VEC;
@@ -170,32 +172,36 @@ struct Distributor
         }
     }
 
-    void add_buffer(uint64_t vecIndex)
-    {
-        buffer.push_back(vecIndex);
-        if (!buffer_check())
-            unload();
-    }
-
     void unload()
     {
         buffer.sort();
         while (!buffer.empty())
         {
             auto i = buffer.front();
-            set_pos(i);
+            if (std::get<1>(i))
+            {
+                set_impl(std::get<0>(i), true);
+            }
+            else
+            {
+                set_impl(std::get<0>(i), false);
+            }
             buffer.pop_front();
         }
     }
 
-    inline void set_pos(uint64_t vecIndex)
+    void set_pos(uint64_t vecIndex)
     {
-        set_impl(vecIndex, true);
+        buffer.push_back(std::make_tuple(vecIndex, true));
+        if (!buffer_check())
+            unload();
     }
 
-    inline void unset_pos(uint64_t vecIndex)
+    void unset_pos(uint64_t vecIndex)
     {
-        set_impl(vecIndex, false);
+        buffer.push_back(std::make_tuple(vecIndex, false));
+        if (!buffer_check())
+            unload();
     }
 
     void set_impl(uint64_t vecIndex, bool value)
@@ -520,7 +526,7 @@ public:
                 uint64_t vecIndex = preCalcValues[i] * kmerHash;
                 hashToIndex(vecIndex);
                 vecIndex += binNo;
-                filterVector.add_buffer(vecIndex);
+                filterVector.set_pos(vecIndex);
             }
         }
     }
