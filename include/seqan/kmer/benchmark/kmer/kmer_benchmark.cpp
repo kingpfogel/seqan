@@ -51,7 +51,7 @@ uint64_t ipow(uint64_t base, uint64_t exp)
 template <typename TAlphabet>
 static void addKmer_IBF(benchmark::State& state)
 {
-    KmerFilter<TAlphabet, InterleavedBloomFilter> ibf (state.range(0), state.range(3), state.range(1), state.range(2));
+    KmerFilter<TAlphabet, InterleavedBloomFilter> ibf (state.range(0), state.range(3), state.range(1), (1ULL<<state.range(2))+256);
     std::mt19937 RandomNumber;
     String<TAlphabet> kmer("");
     for (uint8_t i = 0; i < state.range(1); ++i)
@@ -63,7 +63,7 @@ static void addKmer_IBF(benchmark::State& state)
 template <typename TAlphabet>
 static void whichBins_IBF(benchmark::State& state)
 {
-    KmerFilter<TAlphabet, InterleavedBloomFilter> ibf (state.range(0), state.range(3), state.range(1), state.range(2));
+    KmerFilter<TAlphabet, InterleavedBloomFilter> ibf (state.range(0), state.range(3), state.range(1), (1<<state.range(2))+256);
     std::mt19937 RandomNumber;
     String<TAlphabet> kmer("");
     for (uint8_t i = 0; i < state.range(1); ++i)
@@ -104,11 +104,11 @@ static void IBFArguments(benchmark::internal::Benchmark* b)
             continue;
         for (int32_t k = 20; k <= 20; ++k)
         {
-            for (int32_t bits = 1<<1; bits <= 1<<1; bits <<= 1 )
+            for (int32_t bits = 35; bits <= 37; ++bits )
             {
                 for (int32_t hashNo = 3; hashNo < 4; ++hashNo)
                 {
-                    b->Args({binNo, k, bits+256, hashNo});
+                    b->Args({binNo, k, bits, hashNo});
                 }
             }
         }
