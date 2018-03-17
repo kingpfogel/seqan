@@ -49,10 +49,10 @@ int main()
 {
     //SeqAnBloomFilter<> filter (10, 1, 12, 16777216);
     uint64_t threads{3};
-    uint64_t noBins{10};
+    uint64_t noBins{8192};
     uint64_t kmerSize{3};
     uint64_t hashFunc{3};
-    uint64_t bits{1ULL<<37};
+    uint64_t bits{(1ULL<<36)+256};
 
 
     // ==========================================================================
@@ -95,8 +95,11 @@ int main()
 
         CharString fasta("../test.fasta.gz");
         addFastaFile(ctor_default, toCString(fasta), 1);
+        ctor_default.filterVector.unload();
         addFastaFile(ctor_default, toCString(fasta), 5);
+        ctor_default.filterVector.unload();
         addFastaFile(ctor_default, toCString(fasta), 8);
+        ctor_default.filterVector.unload();
         // addFastaFile(ctor_copy, toCString(fasta), 2);
         // addFastaFile(assignment_copy, toCString(fasta), 3);
         // addFastaFile(ctor_move, toCString(fasta), 0);
