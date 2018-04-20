@@ -44,13 +44,33 @@ static void addKmer_IBF(benchmark::State& state)
     auto hash = state.range(3);
     KmerFilter<TAlphabet, InterleavedBloomFilter> ibf (bins, hash, k, (1ULL<<bits)+256);
     std::mt19937 RandomNumber;
-    String<TAlphabet> kmer("");
+    StringSet<String<TAlphabet> > input;
+    reserve(input, 1000000);
 
-    for (uint8_t i = 0; i < k; ++i)
-        appendValue(kmer, TAlphabet(RandomNumber() % ValueSize<TAlphabet>::VALUE));
+    for (uint64_t seqNo = 0; seqNo < 1000000; ++seqNo)
+    {
+        String<TAlphabet> tmp;
+        for (int32_t i = 0; i < k; ++i)
+        {
+            appendValue(tmp, TAlphabet(RandomNumber() % ValueSize<TAlphabet>::VALUE));
+        }
+        appendValue(input, tmp);
+    }
+
+    uint64_t i{0};
 
     for (auto _ : state)
-        addKmer(ibf, kmer, RandomNumber() % bins);
+    {
+        auto in = input[i % 1000000];
+        uint64_t b = i % bins;
+        auto start = std::chrono::high_resolution_clock::now();
+        addKmer(ibf, in, b);
+        auto end   = std::chrono::high_resolution_clock::now();
+        auto elapsed_seconds = std::chrono::duration_cast<std::chrono::duration<double> >(end - start);
+        state.SetIterationTime(elapsed_seconds.count());
+
+        ++i;
+    }
 }
 
 template <typename TAlphabet>
