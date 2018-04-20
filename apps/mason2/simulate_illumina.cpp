@@ -219,10 +219,10 @@ void _simulateSequence(TRead & read, TRng & rng, TFrag const & frag,
 
             // NOTE: We can only insert CGAT, but we can have a polymorphism to N.
 
-            if (cigar[i].operation == 'I')
-                appendValue(read, seqan::Dna5(num));
-            else
-                appendValue(read, seqan::Dna5(num + (num == ordValue(*it))));
+            // if (cigar[i].operation == 'I')
+            appendValue(read, seqan::Dna5(num));
+            // else
+            //     appendValue(read, seqan::Dna5(num + (num == ordValue(*it))));
         }
 
         if (cigar[i].operation == 'X')
