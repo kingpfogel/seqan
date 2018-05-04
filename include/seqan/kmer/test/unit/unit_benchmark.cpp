@@ -52,7 +52,9 @@ int main()
     uint64_t threads{3};
     uint64_t noBins{10};
     uint64_t kmerSize{14};
+    [[maybe_unused]]
     uint64_t hashFunc{3};
+    [[maybe_unused]]
     uint64_t bits{1ULL<<33};
 
 
@@ -71,7 +73,6 @@ int main()
     // Empty default constructor
     KmerFilter<Dna, TSpec, TFilter> ctor_empty;
     // Default constructor
-    // KmerFilter<Dna, TSpec> ctor_default (noBins, hashFunc, kmerSize, bits);
 
     KmerFilter<Dna, TSpec, TFilter> ctor_default (noBins, hashFunc, kmerSize, bits);
     KmerFilter<Dna, TSpec, TFilter> ctor_default_helper1 (noBins, hashFunc, kmerSize, bits);
@@ -94,18 +95,18 @@ int main()
 
 
     // ==========================================================================
-    // Test addKmer()
+    // Test insertKmer()
     // ==========================================================================
-    std::cout << "Testing addKmer" << '\n';
+    std::cout << "Testing insertKmer" << '\n';
 
-        CharString fasta("../test.fasta.gz");
-        addFastaFile(ctor_default, toCString(fasta), 1);
-        addFastaFile(ctor_default, toCString(fasta), 5);
-        addFastaFile(ctor_default, toCString(fasta), 8);
-        addFastaFile(ctor_copy, toCString(fasta), 2);
-        addFastaFile(assignment_copy, toCString(fasta), 3);
-        addFastaFile(ctor_move, toCString(fasta), 0);
-        addFastaFile(assignment_move, toCString(fasta), 9);
+        CharString fasta("../../unit/test.fasta");
+        insertKmer(ctor_default, toCString(fasta), 1);
+        insertKmer(ctor_default, toCString(fasta), 5);
+        insertKmer(ctor_default, toCString(fasta), 8);
+        insertKmer(ctor_copy, toCString(fasta), 2);
+        insertKmer(assignment_copy, toCString(fasta), 3);
+        insertKmer(ctor_move, toCString(fasta), 0);
+        insertKmer(assignment_move, toCString(fasta), 9);
 
 
     // ==========================================================================
@@ -120,15 +121,15 @@ int main()
 
 
     // ==========================================================================
-    // Test whichBins()
+    // Test select()
     // ==========================================================================
-    std::cout << "Testing whichBins" << '\n';
+    std::cout << "Testing select" << '\n';
 
-    std::vector<uint64_t> ctor_default_set;
+    std::vector<uint16_t> ctor_default_set;
 
-    std::vector<bool> which = whichBins(ctor_default, DnaString(std::string(kmerSize, 'A')), 1);
-    (void) whichBins(ctor_default, DnaString(std::string(kmerSize, 'T')));
-    for (uint64_t i = 0; i < which.size(); ++i)
+    std::vector<bool> which = select(ctor_default, DnaString(std::string(kmerSize, 'A')), 1);
+    (void) select(ctor_default, DnaString(std::string(kmerSize, 'T')));
+    for (uint16_t i = 0; i < which.size(); ++i)
     {
         if (i == 1 || i == 5 || i == 8)
         {
@@ -141,9 +142,9 @@ int main()
 
 
     // ==========================================================================
-    // Test clearBins()
+    // Test clear()
     // ==========================================================================
-    std::cout << "Testing clearBins" << '\n';
+    std::cout << "Testing clear" << '\n';
 
     // Check if any elements are set in the filters.
     bool ctor_default_any = false;
@@ -158,7 +159,7 @@ int main()
     assert(ctor_default_any == true);
 
     // Reset the filter vectors.
-    clearBins(ctor_default, ctor_default_set, threads);
+    clear(ctor_default, ctor_default_set, threads);
 
     // Check if filter Vectors are empty.
     ctor_default_any = false;

@@ -52,13 +52,13 @@ int numDigits(T number)
 }
 
 template <typename TAlphabet, typename TFilter>
-static void addKmer_IBF(benchmark::State& state)
+static void insertKmer_IBF(benchmark::State& state)
 {
     auto bins = state.range(0);
     auto k = state.range(1);
     auto bits = state.range(2);
     auto hash = state.range(3);
-    KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter> ibf (bins, hash, k, (1ULL<<bits)+256);
+    KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter> ibf (bins, hash, k, (1ULL<<bits));
 
     for (auto _ : state)
     {
@@ -72,7 +72,7 @@ static void addKmer_IBF(benchmark::State& state)
             append(file, CharString(".fasta"));
 
             auto start = std::chrono::high_resolution_clock::now();
-            addFastaFile(ibf, toCString(file), i);
+            insertKmer(ibf, toCString(file), i);
             auto end   = std::chrono::high_resolution_clock::now();
             elapsed_seconds += (std::chrono::duration_cast<std::chrono::duration<double> >(end - start)).count();
             std::cerr << "IBF Bin " << i << " done." << '\n';
@@ -100,13 +100,13 @@ static void addKmer_IBF(benchmark::State& state)
 }
 
 template <typename TAlphabet, typename TFilter>
-static void whichBins_IBF(benchmark::State& state)
+static void select_IBF(benchmark::State& state)
 {
     auto bins = state.range(0);
     auto k = state.range(1);
     auto bits = state.range(2);
     auto hash = state.range(3);
-    KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter> ibf(bins, hash, k, (1ULL<<bits)+256);
+    KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter> ibf(bins, hash, k, (1ULL<<bits));
 
     CharString storage("");
     append(storage, CharString(std::to_string(bins)));
@@ -151,7 +151,7 @@ static void whichBins_IBF(benchmark::State& state)
             {
                 readRecord(id, seq, seqFileIn);
                 auto start = std::chrono::high_resolution_clock::now();
-                auto res = whichBins(ibf, seq, 100-k+1 - k*e);
+                auto res = select(ibf, seq, 100-k+1 - k*e);
                 auto end   = std::chrono::high_resolution_clock::now();
                 elapsed_seconds += (std::chrono::duration_cast<std::chrono::duration<double> >(end - start)).count();
                 if (res[i])
@@ -168,11 +168,11 @@ static void whichBins_IBF(benchmark::State& state)
 }
 
 template <typename TAlphabet, typename TFilter>
-static void addKmer_DA(benchmark::State& state)
+static void insertKmer_DA(benchmark::State& state)
 {
     auto bins = state.range(0);
     auto k = state.range(1);
-    KmerFilter<TAlphabet, DirectAddressing> da (bins, k);
+    KmerFilter<TAlphabet, DirectAddressing, TFilter> da (bins, k);
 
     for (auto _ : state)
     {
@@ -186,7 +186,7 @@ static void addKmer_DA(benchmark::State& state)
             append(file, CharString(".fasta"));
 
             auto start = std::chrono::high_resolution_clock::now();
-            addFastaFile(da, toCString(file), i);
+            insertKmer(da, toCString(file), i);
             auto end   = std::chrono::high_resolution_clock::now();
             elapsed_seconds += (std::chrono::duration_cast<std::chrono::duration<double> >(end - start)).count();
             std::cerr << "DA Bin " << i << " done." << '\n';
@@ -212,11 +212,11 @@ static void addKmer_DA(benchmark::State& state)
 }
 
 template <typename TAlphabet, typename TFilter>
-static void whichBins_DA(benchmark::State& state)
+static void select_DA(benchmark::State& state)
 {
     auto bins = state.range(0);
     auto k = state.range(1);
-    KmerFilter<TAlphabet, DirectAddressing> da (bins, k);
+    KmerFilter<TAlphabet, DirectAddressing, TFilter> da (bins, k);
 
     CharString storage("");
     append(storage, CharString(std::to_string(bins)));
@@ -259,7 +259,7 @@ static void whichBins_DA(benchmark::State& state)
             {
                 readRecord(id, seq, seqFileIn);
                 auto start = std::chrono::high_resolution_clock::now();
-                auto res = whichBins(da, seq, 100-k+1 - k*e);
+                auto res = select(da, seq, 100-k+1 - k*e);
                 auto end   = std::chrono::high_resolution_clock::now();
                 elapsed_seconds += (std::chrono::duration_cast<std::chrono::duration<double> >(end - start)).count();
 
@@ -310,17 +310,17 @@ static void DAArguments(benchmark::internal::Benchmark* b)
     }
 }
 
-BENCHMARK_TEMPLATE(addKmer_IBF, Dna, Uncompressed)->Apply(IBFArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(addKmer_IBF, Dna, CompressedSimple)->Apply(IBFArguments)->UseManualTime();
-// BENCHMARK_TEMPLATE(addKmer_IBF, Dna, CompressedArray)->Apply(IBFAddArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(addKmer_DA, Dna, Uncompressed)->Apply(DAArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(addKmer_DA, Dna, CompressedSimple)->Apply(DAArguments)->UseManualTime();
-// BENCHMARK_TEMPLATE(addKmer_DA, Dna, CompressedArray)->Apply(DAAddArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(whichBins_IBF, Dna, Uncompressed)->Apply(IBFArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(whichBins_IBF, Dna, CompressedSimple)->Apply(IBFArguments)->UseManualTime();
-// BENCHMARK_TEMPLATE(whichBins_IBF, Dna, CompressedArray)->Apply(IBFWhichArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(whichBins_DA, Dna, Uncompressed)->Apply(DAArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(whichBins_DA, Dna, CompressedSimple)->Apply(DAArguments)->UseManualTime();
-// BENCHMARK_TEMPLATE(whichBins_DA, Dna, CompressedArray)->Apply(DAWhichArguments)->UseManualTime();
+BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed)->Apply(IBFArguments)->UseManualTime();
+BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, CompressedSimple)->Apply(IBFArguments)->UseManualTime();
+// BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, CompressedArray)->Apply(IBFAddArguments)->UseManualTime();
+BENCHMARK_TEMPLATE(insertKmer_DA, Dna, Uncompressed)->Apply(DAArguments)->UseManualTime();
+BENCHMARK_TEMPLATE(insertKmer_DA, Dna, CompressedSimple)->Apply(DAArguments)->UseManualTime();
+// BENCHMARK_TEMPLATE(insertKmer_DA, Dna, CompressedArray)->Apply(DAAddArguments)->UseManualTime();
+BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed)->Apply(IBFArguments)->UseManualTime();
+BENCHMARK_TEMPLATE(select_IBF, Dna, CompressedSimple)->Apply(IBFArguments)->UseManualTime();
+// BENCHMARK_TEMPLATE(select_IBF, Dna, CompressedArray)->Apply(IBFWhichArguments)->UseManualTime();
+BENCHMARK_TEMPLATE(select_DA, Dna, Uncompressed)->Apply(DAArguments)->UseManualTime();
+BENCHMARK_TEMPLATE(select_DA, Dna, CompressedSimple)->Apply(DAArguments)->UseManualTime();
+// BENCHMARK_TEMPLATE(select_DA, Dna, CompressedArray)->Apply(DAWhichArguments)->UseManualTime();
 
 BENCHMARK_MAIN();
