@@ -205,7 +205,7 @@ struct FilterVector<CompressedSimple>
 
     bool compressed = false;
     std::unique_ptr<sdsl::bit_vector> uncompressed_vector;
-    std::unique_ptr<sdsl::sd_vector<> > compressed_vector;
+    std::unique_ptr<sdsl::rrr_vector<> > compressed_vector;
 
     double size_in_mega_bytes()
     {
@@ -235,7 +235,7 @@ struct FilterVector<CompressedSimple>
     {
         if (!compressed)
         {
-            compressed_vector = std::make_unique<sdsl::sd_vector<> >(*uncompressed_vector);
+            compressed_vector = std::make_unique<sdsl::rrr_vector<> >(*uncompressed_vector);
             sdsl::store_to_file(*uncompressed_vector, toCString(PREFIX));
             uncompressed_vector = std::make_unique<sdsl::bit_vector>(0,0);
             compressed = true;
@@ -259,13 +259,13 @@ struct FilterVector<CompressedSimple>
         chunkSize = noOfBits;
 
         uncompressed_vector = std::make_unique<sdsl::bit_vector>(noOfBits+FILTER_METADATA_SIZE,0);
-        compressed_vector = std::make_unique<sdsl::sd_vector<> >();
+        compressed_vector = std::make_unique<sdsl::rrr_vector<> >();
     }
 
     FilterVector & operator=(FilterVector & other)
     {
         uncompressed_vector = std::make_unique<sdsl::bit_vector>(*other.uncompressed_vector);
-        compressed_vector = std::make_unique<sdsl::sd_vector<> >(*other.compressed_vector);
+        compressed_vector = std::make_unique<sdsl::rrr_vector<> >(*other.compressed_vector);
         compressed = other.compressed;
         noOfBins = other.noOfBins;
         noOfBits = other.noOfBits;
@@ -388,7 +388,7 @@ struct FilterVector<CompressedArray>
 
     CharString PREFIX{random_string()};
 
-    std::vector<std::tuple<bool,std::unique_ptr<sdsl::bit_vector>, std::unique_ptr<sdsl::sd_vector<> > > > filterVector;
+    std::vector<std::tuple<bool,std::unique_ptr<sdsl::bit_vector>, std::unique_ptr<sdsl::rrr_vector<> > > > filterVector;
 
     double size_in_mega_bytes()
     {
@@ -413,7 +413,7 @@ struct FilterVector<CompressedArray>
     {
         if (!std::get<0>(filterVector[chunk]))
         {
-            std::get<2>(filterVector[chunk]) = std::make_unique<sdsl::sd_vector<> >(*std::get<1>(filterVector[chunk]));
+            std::get<2>(filterVector[chunk]) = std::make_unique<sdsl::rrr_vector<> >(*std::get<1>(filterVector[chunk]));
             sdsl::store_to_file(*std::get<1>(filterVector[chunk]), toCString(PREFIX)+std::to_string(chunk));
             std::get<1>(filterVector[chunk]) = std::make_unique<sdsl::bit_vector>(0,0);
             std::get<0>(filterVector[chunk]) = true;
@@ -444,7 +444,7 @@ struct FilterVector<CompressedArray>
         {
             filterVector.emplace_back(std::make_tuple(false,
                                                    std::make_unique<sdsl::bit_vector>(std::min(chunkSize, size), 0),
-                                                   std::make_unique<sdsl::sd_vector<> >()));
+                                                   std::make_unique<sdsl::rrr_vector<> >()));
             compress(i);
             size -= chunkSize;
         }
@@ -453,7 +453,7 @@ struct FilterVector<CompressedArray>
     FilterVector<CompressedArray> & operator=(FilterVector<CompressedArray> & other)
     {
         for (const auto& element : other.filterVector)
-            filterVector.emplace_back(std::make_tuple(std::get<0>(element), std::make_unique<sdsl::bit_vector>(*std::get<1>(element)), std::make_unique<sdsl::sd_vector<> >(*std::get<2>(element))));
+            filterVector.emplace_back(std::make_tuple(std::get<0>(element), std::make_unique<sdsl::bit_vector>(*std::get<1>(element)), std::make_unique<sdsl::rrr_vector<> >(*std::get<2>(element))));
 
         noOfBins = other.noOfBins;
         noOfBits = other.noOfBits;
@@ -502,7 +502,7 @@ struct FilterVector<CompressedArray>
                 std::make_tuple(
                     false,
                     std::make_unique<sdsl::bit_vector>(0,0),
-                    std::make_unique<sdsl::sd_vector<> >()));
+                    std::make_unique<sdsl::rrr_vector<> >()));
             if (sdsl::load_from_file(*std::get<1>(filterVector[chunk]), toCString(fileName)+std::to_string(chunk)))
             {
                 compress(chunk);
