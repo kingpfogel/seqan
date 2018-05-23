@@ -60,8 +60,8 @@ namespace seqan{
  * ```
  *
  */
-template<typename TValue, typename TFilterVector>
-class KmerFilter<TValue, DirectAddressing, TFilterVector>
+template<typename TValue, typename TFilterVector, typename TSpec2>
+class KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2>
 {
 public:
     //!\brief The type of the variables.
@@ -81,6 +81,8 @@ public:
 
     //!\brief The bit vector storing the bloom filters.
     FilterVector<TFilterVector>         filterVector;
+    //!\brief The shape to be used in the Filter.
+    KmerShape<TValue, TSpec2>         shape;
     //!\brief How many bits we can represent in the biggest unsigned int available.
     static const typename Value<KmerFilter>::intSize    intSize{0x40};
     //!\brief Size in bits of the meta data.
@@ -88,7 +90,7 @@ public:
     //!\brief The number of used hash functions. Not used but needed for meta data template functions.
     typename Value<KmerFilter>::blockBitSize    noOfHashFunc{1};
     //!\brief A ungapped Shape over our filter alphabet.
-    typedef Shape<TValue, SimpleShape>  TShape;
+    //typedef Shape<TValue, TSpec2>  TShape;
 
     /* rule of six */
     /*\name Constructor, destructor and assignment
@@ -114,13 +116,13 @@ public:
     }
 
     //!\brief Copy constructor
-    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector> & other)
+    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> & other)
     {
         *this = other;
     }
 
     //!\brief Copy assignment
-    KmerFilter<TValue, DirectAddressing, TFilterVector> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector> & other)
+    KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> & other)
     {
         noOfBins = other.noOfBins;
         kmerSize = other.kmerSize;
@@ -134,13 +136,13 @@ public:
     }
 
     //!\brief Move constrcutor
-    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector> && other)
+    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> && other)
     {
         *this = std::move(other);
     }
 
     //!\brief Move assignment
-    KmerFilter<TValue, DirectAddressing, TFilterVector> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector> && other)
+    KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> && other)
     {
         noOfBins = std::move(other.noOfBins);
         kmerSize = std::move(other.kmerSize);
@@ -154,8 +156,8 @@ public:
     }
 
     //!\brief Destructor
-    // ~KmerFilter<TValue, DirectAddressing, TFilterVector>() = default;
-    ~KmerFilter<TValue, DirectAddressing, TFilterVector>() = default;
+    // ~KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2>() = default;
+    ~KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2>() = default;
     //!\}
 
     /*!
@@ -239,13 +241,14 @@ public:
         uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
         std::vector<uint64_t> kmerHashes(possible, 0);
 
-        TShape kmerShape;
-        resize(kmerShape, kmerSize);
-        hashInit(kmerShape, begin(text));
+        //TShape kmerShape;
+        shape.resizeShape(kmerSize);
+        //resize(kmerShape, kmerSize);
+        hashInit(shape.shape, begin(text));
         auto it = begin(text);
         for (uint16_t i = 0; i < possible; ++i)
         {
-            kmerHashes[i] = hashNext(kmerShape, it);
+            kmerHashes[i] = hashNext(shape.shape, it);
             ++it;
         }
 
@@ -321,13 +324,13 @@ public:
     template<typename TBin, typename TChunk>
     inline void insertKmer(TString const & text,TBin && binNo, TChunk && chunkNo)
     {
-        TShape kmerShape;
-        resize(kmerShape, kmerSize);
-        hashInit(kmerShape, begin(text));
-
-        for (uint64_t i = 0; i < length(text) - length(kmerShape) + 1; ++i)
+        //TShape kmerShape;
+        shape.resizeShape(kmerSize);
+        //resize(kmerShape, kmerSize);
+        hashInit(shape.shape, begin(text));
+        for (uint64_t i = 0; i < length(text) - length(shape.shape) + 1; ++i)
         {
-            uint64_t kmerHash = hashNext(kmerShape, begin(text) + i);
+            uint64_t kmerHash = hashNext(shape.shape, begin(text) + i);
             uint64_t vecIndex = kmerHash * blockBitSize + binNo;
             filterVector.set_pos(vecIndex, chunkNo);
         }

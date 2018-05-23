@@ -32,52 +32,42 @@
 #include <random>
 #include <benchmark/benchmark.h>
 #include <seqan/kmer.h>
-
+#include <atomic>
+#include <seqan/index.h>
 using namespace seqan;
 
-CharString baseDir{"/srv/public/enricoseiler/benchmark/"};
+// CharString baseDir{"/srv/public/enricoseiler/benchmark/"}; // lncrna
+CharString baseDir{"/home/pfogel/devel/testenv_exp/"};
 uint64_t e{2};
-uint64_t readNo{1000000};
 
-template <typename T>
-int numDigits(T number)
-{
-    int digits = 0;
-    if (number <= 0) digits = 1; // remove this line if '-' counts as a digit
-    while (number) {
-        number /= 10;
-        digits++;
-    }
-    return digits;
-}
-
-template <typename TAlphabet, typename TFilter>
+template <typename TAlphabet, typename TFilter, typename TSpec>
 static void insertKmer_IBF(benchmark::State& state)
 {
     auto bins = state.range(0);
     auto k = state.range(1);
     auto bits = state.range(2);
     auto hash = state.range(3);
-    KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter> ibf (bins, hash, k, (1ULL<<bits));
+    KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter, TSpec> ibf (bins, hash, k, (1ULL<<bits));
 
     for (auto _ : state)
     {
-        double elapsed_seconds{0.0};
-        for(int32_t i = 0; i < bins; ++i)
-        {
-            CharString file(baseDir);
-            append(file, CharString(std::to_string(bins)));
-            append(file, CharString{"/bins/bin_"});
-            append(file, CharString(std::string(numDigits(bins)-numDigits(i), '0') + (std::to_string(i))));
-            append(file, CharString(".fasta"));
-
-            auto start = std::chrono::high_resolution_clock::now();
-            insertKmer(ibf, toCString(file), i);
-            auto end   = std::chrono::high_resolution_clock::now();
-            elapsed_seconds += (std::chrono::duration_cast<std::chrono::duration<double> >(end - start)).count();
-            std::cerr << "IBF Bin " << i << " done." << '\n';
-        }
-        state.SetIterationTime(elapsed_seconds);
+        insertKmerDir(ibf, toCString(baseDir), 8);
+        // double elapsed_seconds{0.0};
+        // for(int32_t i = 0; i < bins; ++i)
+        // {
+        //     CharString file(baseDir);
+        //     append(file, CharString(std::to_string(bins)));
+        //     append(file, CharString{"/bins/bin_"});
+        //     append(file, CharString(std::string(numDigits(bins)-numDigits(i), '0') + (std::to_string(i))));
+        //     append(file, CharString(".fasta"));
+        //
+        //     auto start = std::chrono::high_resolution_clock::now();
+        //     insertKmer(ibf, toCString(file), i);
+        //     auto end   = std::chrono::high_resolution_clock::now();
+        //     elapsed_seconds += (std::chrono::duration_cast<std::chrono::duration<double> >(end - start)).count();
+        //     std::cerr << "IBF Bin " << i << " done." << '\n';
+        // }
+        // state.SetIterationTime(elapsed_seconds);
     }
 
     CharString storage("");
@@ -86,27 +76,21 @@ static void insertKmer_IBF(benchmark::State& state)
     append(storage, CharString(std::to_string(k)));
     append(storage, CharString("_"));
     append(storage, CharString(std::to_string(bits)));
-    if constexpr (std::is_same_v<TFilter, Uncompressed>) {
-        append(storage, CharString("_Uncompressed"));
-    }
-    else
-    {
-        append(storage, CharString("_Compressed"));
-    }
+
     append(storage, CharString("_ibf.filter"));
     store(ibf, storage);
 
     state.counters["Size"] = ibf.filterVector.size_in_mega_bytes();
 }
 
-template <typename TAlphabet, typename TFilter>
+template <typename TAlphabet, typename TFilter, typename TSpec>
 static void select_IBF(benchmark::State& state)
 {
     auto bins = state.range(0);
     auto k = state.range(1);
     auto bits = state.range(2);
     auto hash = state.range(3);
-    KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter> ibf(bins, hash, k, (1ULL<<bits));
+    KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter, TSpec> ibf(bins, hash, k, (1ULL<<bits));
 
     CharString storage("");
     append(storage, CharString(std::to_string(bins)));
@@ -114,23 +98,25 @@ static void select_IBF(benchmark::State& state)
     append(storage, CharString(std::to_string(k)));
     append(storage, CharString("_"));
     append(storage, CharString(std::to_string(bits)));
-    if constexpr (std::is_same_v<TFilter, Uncompressed>) {
-        append(storage, CharString("_Uncompressed"));
-    }
-    else
-    {
-        append(storage, CharString("_Compressed"));
-    }
+
     append(storage, CharString("_ibf.filter"));
     retrieve(ibf, storage);
     ibf.filterVector.compress(0);
 
-    uint64_t verifications{0};
-    uint64_t tp{0};
+    std::atomic<uint64_t> verifications{0};
+    std::atomic<uint64_t> tp{0};
+    std::atomic<uint64_t> p{0};
+    std::atomic<uint64_t> fp{0};
+    std::atomic<uint64_t> fn{0};
+    std::atomic<uint64_t> readNo{0};
 
     for (auto _ : state)
     {
         double elapsed_seconds{0.0};
+        Semaphore thread_limiter(8);
+        std::mutex mtx;
+        std::vector<std::future<void>> tasks;
+
         for(int32_t i = 0; i < bins; ++i)
         {
             CharString file(baseDir);
@@ -139,73 +125,99 @@ static void select_IBF(benchmark::State& state)
             append(file, CharString(std::string(numDigits(bins)-numDigits(i), '0') + (std::to_string(i))));
             append(file, CharString(".fastq"));
 
-            CharString id;
-            String<TAlphabet> seq;
-            SeqFileIn seqFileIn;
-            if (!open(seqFileIn, toCString(file)))
-            {
-                CharString msg = "Unable to open contigs file: ";
-                append(msg, CharString(file));
-                throw toCString(msg);
-            }
-            while(!atEnd(seqFileIn))
-            {
-                readRecord(id, seq, seqFileIn);
-                auto start = std::chrono::high_resolution_clock::now();
-                auto res = select(ibf, seq, 100-k+1 - k*e);
-                auto end   = std::chrono::high_resolution_clock::now();
-                elapsed_seconds += (std::chrono::duration_cast<std::chrono::duration<double> >(end - start)).count();
-                if (res[i])
-                {
-                    ++tp;
-                }
-                verifications += count(res.begin(), res.end(), true);
-            }
+            tasks.emplace_back(
+                std::async(std::launch::async, [&, file, i] {
+                    Critical_section _(thread_limiter);
+                    CharString id;
+                    String<TAlphabet> seq;
+                    SeqFileIn seqFileIn;
+                    uint64_t c{0};
+                    if (!open(seqFileIn, toCString(file)))
+                    {
+                        CharString msg = "Unable to open contigs file: ";
+                        append(msg, CharString(file));
+                        throw toCString(msg);
+                    }
+                    while(!atEnd(seqFileIn))
+                    {
+                        readRecord(id, seq, seqFileIn);
+                        auto start = std::chrono::high_resolution_clock::now();
+                        auto res = select(ibf, seq, 100-k+1 - k*e);
+                        auto end   = std::chrono::high_resolution_clock::now();
+                        ++readNo;
+                        mtx.lock();
+                        elapsed_seconds += std::chrono::duration_cast<std::chrono::duration<double> >(end - start).count();
+                        mtx.unlock();
+                        if (res[i])
+                            ++tp;
+                        else
+                            ++fn;
+                        c = count(res.begin(), res.end(), true);
+                        verifications += c;
+                        if (c > 1)
+                        {
+                            if (res[i])
+                                fp += c - 1;
+                            else
+                                fp += c;
+                        }
+                        p += c;
+                    }
+                })
+            );
         }
+        for (auto &&task : tasks){
+            task.get();
+        }
+
         state.SetIterationTime(elapsed_seconds);
-        state.counters["Verifications"] = verifications/readNo;
-        state.counters["Sensitivity"] = tp/verifications;
+        state.counters["5_TP"] = tp.load();
+        state.counters["6_FN"] = fn.load();
+        state.counters["7_FP"] = fp.load();
+        state.counters["8_P"] = p.load();
+        state.counters["99_readNo"] = readNo.load();
+        state.counters["9_verifications"] = verifications.load();
+        state.counters["0_Verifications"] = static_cast<double>(verifications.load())/readNo.load();
+        state.counters["1_Sensitivity"] = static_cast<double>(tp.load())/readNo.load();
+        state.counters["2_Precision"] = static_cast<double>(tp.load())/p.load();
+        state.counters["3_FNR"] = static_cast<double>(fn.load())/readNo.load();
+        state.counters["4_FDR"] = static_cast<double>(fp.load())/p.load();
     }
 }
 
-template <typename TAlphabet, typename TFilter>
+template <typename TAlphabet, typename TFilter, typename TSpec>
 static void insertKmer_DA(benchmark::State& state)
 {
     auto bins = state.range(0);
     auto k = state.range(1);
-    KmerFilter<TAlphabet, DirectAddressing, TFilter> da (bins, k);
+    KmerFilter<TAlphabet, DirectAddressing, TFilter, TSpec> da (bins, k);
 
     for (auto _ : state)
     {
-        double elapsed_seconds{0.0};
-        for(int32_t i = 0; i < bins; ++i)
-        {
-            CharString file(baseDir);
-            append(file, CharString(std::to_string(bins)));
-            append(file, CharString{"/bins/bin_"});
-            append(file, CharString(std::string(numDigits(bins)-numDigits(i), '0') + (std::to_string(i))));
-            append(file, CharString(".fasta"));
-
-            auto start = std::chrono::high_resolution_clock::now();
-            insertKmer(da, toCString(file), i);
-            auto end   = std::chrono::high_resolution_clock::now();
-            elapsed_seconds += (std::chrono::duration_cast<std::chrono::duration<double> >(end - start)).count();
-            std::cerr << "DA Bin " << i << " done." << '\n';
-        }
-        state.SetIterationTime(elapsed_seconds);
+        insertKmerDir(da, toCString(baseDir), 8);
+        // double elapsed_seconds{0.0};
+        // for(int32_t i = 0; i < bins; ++i)
+        // {
+        //     CharString file(baseDir);
+        //     append(file, CharString(std::to_string(bins)));
+        //     append(file, CharString{"/bins/bin_"});
+        //     append(file, CharString(std::string(numDigits(bins)-numDigits(i), '0') + (std::to_string(i))));
+        //     append(file, CharString(".fasta"));
+        //
+        //     auto start = std::chrono::high_resolution_clock::now();
+        //     insertKmer(da, toCString(file), i);
+        //     auto end   = std::chrono::high_resolution_clock::now();
+        //     elapsed_seconds += (std::chrono::duration_cast<std::chrono::duration<double> >(end - start)).count();
+        //     std::cerr << "DA Bin " << i << " done." << '\n';
+        // }
+        // state.SetIterationTime(elapsed_seconds);
     }
 
     CharString storage("");
     append(storage, CharString(std::to_string(bins)));
     append(storage, CharString("_"));
     append(storage, CharString(std::to_string(k)));
-    if constexpr (std::is_same_v<TFilter, Uncompressed>) {
-        append(storage, CharString("_Uncompressed"));
-    }
-    else
-    {
-        append(storage, CharString("_Compressed"));
-    }
+
     append(storage, CharString("_da.filter"));
     store(da, storage);
 
@@ -219,17 +231,13 @@ static void select_DA(benchmark::State& state)
     auto k = state.range(1);
     KmerFilter<TAlphabet, DirectAddressing, TFilter> da (bins, k);
 
+    uint64_t readNo{1};
+
     CharString storage("");
     append(storage, CharString(std::to_string(bins)));
     append(storage, CharString("_"));
     append(storage, CharString(std::to_string(k)));
-    if constexpr (std::is_same_v<TFilter, Uncompressed>) {
-        append(storage, CharString("_Uncompressed"));
-    }
-    else
-    {
-        append(storage, CharString("_Compressed"));
-    }
+
     append(storage, CharString("_da.filter"));
     retrieve(da, storage);
     da.filterVector.compress(0);
@@ -280,6 +288,7 @@ static void select_DA(benchmark::State& state)
 
 static void IBFArguments(benchmark::internal::Benchmark* b)
 {
+    b->Args({64, 17, 32, 3});
     for (int32_t binNo = 64; binNo <= 8192; binNo *= 2)
     {
         if ((binNo > 1 && binNo < 64) || binNo==128 || binNo==512 || binNo==2048 || binNo==4096)
@@ -292,14 +301,15 @@ static void IBFArguments(benchmark::internal::Benchmark* b)
                 for (int32_t hashNo = 3; hashNo < 4; ++hashNo)
                 {
 
-                    b->Args({binNo, k, bits, hashNo});
+                    //b->Args({binNo, k, bits, hashNo});
                 }
             }
         }
     }
 }
 
-static void DAArguments(benchmark::internal::Benchmark* b)
+//[[maybe_unused]]
+/*static void DAArguments(benchmark::internal::Benchmark* b)
 {
     for (int32_t binNo = 64; binNo <= 8192; binNo *= 2)
     {
@@ -310,19 +320,19 @@ static void DAArguments(benchmark::internal::Benchmark* b)
             b->Args({binNo, k});
         }
     }
-}
+}*/
 
-//BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed)->Apply(IBFArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, CompressedSimple)->Apply(IBFArguments)->UseManualTime();
+BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, SimpleShape)->Apply(IBFArguments);
+// BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, CompressedSimple)->Apply(IBFArguments)->UseManualTime();
 // BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, CompressedArray)->Apply(IBFAddArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(insertKmer_DA, Dna, Uncompressed)->Apply(DAArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(insertKmer_DA, Dna, CompressedSimple)->Apply(DAArguments)->UseManualTime();
+// BENCHMARK_TEMPLATE(insertKmer_DA, Dna, Uncompressed)->Apply(DAArguments);
+// BENCHMARK_TEMPLATE(insertKmer_DA, Dna, CompressedSimple)->Apply(DAArguments)->UseManualTime();
 // BENCHMARK_TEMPLATE(insertKmer_DA, Dna, CompressedArray)->Apply(DAAddArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed)->Apply(IBFArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(select_IBF, Dna, CompressedSimple)->Apply(IBFArguments)->UseManualTime();
+//BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape)->Apply(IBFArguments)->UseManualTime();
+// BENCHMARK_TEMPLATE(select_IBF, Dna, CompressedSimple)->Apply(IBFArguments)->UseManualTime();
 // BENCHMARK_TEMPLATE(select_IBF, Dna, CompressedArray)->Apply(IBFWhichArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(select_DA, Dna, Uncompressed)->Apply(DAArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(select_DA, Dna, CompressedSimple)->Apply(DAArguments)->UseManualTime();
+// BENCHMARK_TEMPLATE(select_DA, Dna, Uncompressed)->Apply(DAArguments)->UseManualTime();
+// BENCHMARK_TEMPLATE(select_DA, Dna, CompressedSimple)->Apply(DAArguments)->UseManualTime();
 // BENCHMARK_TEMPLATE(select_DA, Dna, CompressedArray)->Apply(DAWhichArguments)->UseManualTime();
 
 BENCHMARK_MAIN();

@@ -1,45 +1,80 @@
-#ifndef KMER_SHAPE
-#define KMER_SHAPE
+#ifndef INCLUDE_SEQAN_KMER_KMER_SHAPE_H_
+#define INCLUDE_SEQAN_KMER_KMER_SHAPE_H_
 
+#include <seqan/index.h>
 namespace seqan {
 
-template<typename TAlphabet>
-struct KmerShape<SimpleShape>
-{
-    typedef Shape<TAlphabet, SimpleShape> TShape;
-    Shape<TAlphabet, SimpleShape> x;
-    void resize(TShape shape, uint64_t kmerSize)
+    template<typename TAlphabet>
+    struct KmerShape<TAlphabet, SimpleShape>
     {
-        resize(shape, kmerSize);
-    }
-};
+        KmerShape() {}
+        ~KmerShape() = default;
+        typedef Shape<TAlphabet, SimpleShape> TShape;
+        TShape shape;
+        void resizeShape(uint64_t kmerSize)
+        {
+            resize(shape, kmerSize);
+        }
+    };
 
-template<typename TAlphabet>
-struct KmerShape<TAlphabet, ShapeIlieB3>
-{
-    Shape<TAlphabet, ShapeIlieB3> x;
-    void resize(TShape &, uint64_t &)
+    template<typename TAlphabet>
+    struct KmerShape<TAlphabet, ShapeIlieB3>
     {
-    }
-};
+        KmerShape() {}
+        ~KmerShape() = default;
+        typedef Shape<TAlphabet, ShapeIlieB3> TShape;
+        TShape shape;
+        void resizeShape(uint64_t kmerSize)
+        {
+        }
+    };
 
-template<typename TAlphabet>
-struct KmerShape<TAlphabet, ShapePatternHunter>
-{
-    Shape<TAlphabet, ShapePatternHunter> x;
-    void resize(TShape &, uint64_t &)
+
+    template<typename TAlphabet>
+    struct KmerShape<TAlphabet, ShapePatternHunter>
     {
-    }
-};
+        KmerShape() {}
+        ~KmerShape() = default;
+        typedef Shape<TAlphabet, ShapePatternHunter> TShape;
+        TShape shape;
+        void resizeShape(uint64_t &)
+        {
+        }
+    };
 
-template<typename TAlphabet>
-struct KmerShape<TAlphabet, ShapeIlieA1>
-{
-    Shape<TAlphabet, ShapeIlieA1> x;
-    void resize(TShape &, uint64_t &)
+    template<typename TAlphabet>
+    struct KmerShape<TAlphabet, ShapeIlieA1>
     {
-    }
-};
-
-#endif // KMER_SHAPE
+        KmerShape() {}
+        ~KmerShape() = default;
+        typedef Shape<TAlphabet, ShapeIlieA1> TShape;
+        TShape shape;
+        void resizeShape(uint64_t &)
+        {
+        }
+    };
+    template<typename TAlphabet>
+    struct KmerShape<TAlphabet, ShapeIlieA2>
+    {
+        KmerShape() {}
+        ~KmerShape() = default;
+        typedef Shape<TAlphabet, ShapeIlieA2> TShape;
+        TShape shape;
+        void resizeShape(uint64_t &)
+        {
+        }
+    };
+    template<typename TAlphabet>
+    struct KmerShape<TAlphabet, ShapeIlieA3>
+    {
+        KmerShape() {}
+        ~KmerShape() = default;
+        typedef Shape<TAlphabet, ShapeIlieA3> TShape;
+        TShape shape;
+        void resizeShape(uint64_t &)
+        {
+        }
+    };
+}
+#endif  // INCLUDE_SEQAN_KMER_KMER_SHAPE_H_
 

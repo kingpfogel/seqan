@@ -67,7 +67,9 @@ include_directories (${SEQAN_INCLUDE_DIRS})
 add_definitions (${SEQAN_DEFINITIONS})
 
 # add warning levels
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -Werror -Wall -Wextra")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -Werror -Wall -Wextra -pthread")
+message(${CMAKE_CXX_FLAGS})
+message(${CMAKE_CXX_COMPILER})
 
 # CMAKE_SOURCE_DIR is seqan/include/seqan/kmer/test (the path of this CMakeLists.txt)
 set(SEQAN_ROOT "${CMAKE_SOURCE_DIR}/../../../..")
@@ -130,7 +132,7 @@ macro(seqan3_benchmark target_cpp)
     target_link_libraries(${target_name}_benchmark "pthread" "benchmark")
     add_dependencies(${target_name}_benchmark benchmark)
 endmacro()
-
+set(SDSL_INCLUDE_DIRS "/home/pfogel/devel/seqan3/submodules/sdsl-lite/include")
 # define all include folders
 include_directories("${BENCHMARK_ROOT}/include/")
 include_directories("${SEQAN_ROOT}/include/")
