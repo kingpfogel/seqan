@@ -407,7 +407,7 @@ namespace seqan
         operator=(Shape const &other)
         {
             hValue = other.hValue;
-      return *this;
+            return *this;
         }
     };
 
@@ -595,7 +595,53 @@ namespace seqan
         me.hValue = (THValue)ordValue((TValue)*it);
         return me.hValue = _hashHardwiredShape(me.hValue, it, TValue(), TSpec());
     }
+/////////.
+    template <
+        int P00, int P01, int P02, int P03, int P04,
+        int P05, int P06, int P07, int P08, int P09,
+        int P10, int P11, int P12, int P13, int P14,
+        int P15, int P16, int P17, int P18, int P19,
+        typename TValue, typename TIter
+    >
+    inline typename Value< Shape<TValue, GappedShape< HardwiredShape<
+        P00,P01,P02,P03,P04,
+        P05,P06,P07,P08,P09,
+        P10,P11,P12,P13,P14,
+        P15,P16,P17,P18,P19
+    > > > >::Type
+    hashInit(Shape<TValue, GappedShape< HardwiredShape<
+        P00,P01,P02,P03,P04,
+        P05,P06,P07,P08,P09,
+        P10,P11,P12,P13,P14,
+        P15,P16,P17,P18,P19
+    > > > &me, TIter it)
+    {
+        return hash(me, it);
+    }
 
+    template <
+        int P00, int P01, int P02, int P03, int P04,
+        int P05, int P06, int P07, int P08, int P09,
+        int P10, int P11, int P12, int P13, int P14,
+        int P15, int P16, int P17, int P18, int P19,
+        typename TValue, typename TIter
+    >
+    inline typename Value< Shape<TValue, GappedShape< HardwiredShape<
+        P00,P01,P02,P03,P04,
+        P05,P06,P07,P08,P09,
+        P10,P11,P12,P13,P14,
+        P15,P16,P17,P18,P19
+    > > > >::Type
+    hashNext(Shape<TValue, GappedShape< HardwiredShape<
+        P00,P01,P02,P03,P04,
+        P05,P06,P07,P08,P09,
+        P10,P11,P12,P13,P14,
+        P15,P16,P17,P18,P19
+    > > > &me, TIter it)
+    {
+        return hash(me, it);
+    }
+//////////////////////////
 //____________________________________________________________________________
 
     template <typename TValue, typename TSpec, typename TIter>

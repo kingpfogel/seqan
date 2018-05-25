@@ -5,7 +5,7 @@
 namespace seqan {
 
     template<typename TAlphabet>
-    struct KmerShape<TAlphabet, SimpleShape>
+    struct KmerShape<TAlphabet, Simple>
     {
         KmerShape() {}
         ~KmerShape() = default;
@@ -18,7 +18,7 @@ namespace seqan {
     };
 
     template<typename TAlphabet>
-    struct KmerShape<TAlphabet, ShapeIlieB3>
+    struct KmerShape<TAlphabet, B3>
     {
         KmerShape() {}
         ~KmerShape() = default;
@@ -31,7 +31,7 @@ namespace seqan {
 
 
     template<typename TAlphabet>
-    struct KmerShape<TAlphabet, ShapePatternHunter>
+    struct KmerShape<TAlphabet, Hunter>
     {
         KmerShape() {}
         ~KmerShape() = default;
@@ -43,18 +43,18 @@ namespace seqan {
     };
 
     template<typename TAlphabet>
-    struct KmerShape<TAlphabet, ShapeIlieA1>
+    struct KmerShape<TAlphabet, A1>
     {
         KmerShape() {}
         ~KmerShape() = default;
         typedef Shape<TAlphabet, ShapeIlieA1> TShape;
         TShape shape;
-        void resizeShape(uint64_t &)
+        void resizeShape(uint64_t )
         {
         }
     };
     template<typename TAlphabet>
-    struct KmerShape<TAlphabet, ShapeIlieA2>
+    struct KmerShape<TAlphabet, A2>
     {
         KmerShape() {}
         ~KmerShape() = default;
@@ -65,7 +65,7 @@ namespace seqan {
         }
     };
     template<typename TAlphabet>
-    struct KmerShape<TAlphabet, ShapeIlieA3>
+    struct KmerShape<TAlphabet, A3>
     {
         KmerShape() {}
         ~KmerShape() = default;

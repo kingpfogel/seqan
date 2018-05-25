@@ -80,17 +80,6 @@ public:
     ~Critical_section() { s.notify(); }
 };
 
-template <typename T>
-int numDigits(T number)
-{
-    int digits = 0;
-    if (number <= 0) digits = 1; // remove this line if '-' counts as a digit
-    while (number) {
-        number /= 10;
-        digits++;
-    }
-    return digits;
-}
 
 // ==========================================================================
 // Tags, Classes, Enums
@@ -104,10 +93,17 @@ int numDigits(T number)
 struct InterleavedBloomFilter_;
 typedef Tag<InterleavedBloomFilter_> InterleavedBloomFilter;
 
+//!\brief A tag for the IBF.
+struct InterleavedBloomFilterNoOverlaps_;
+typedef Tag<InterleavedBloomFilterNoOverlaps_> InterleavedBloomFilterNoOverlaps;
+
 //!\brief A tag for direct addressing.
 struct DirectAddressing_;
 typedef Tag<DirectAddressing_> DirectAddressing;
 
+//!\brief A tag for direct addressing.
+struct DirectAddressingNoOverlaps_;
+typedef Tag<DirectAddressingNoOverlaps_> DirectAddressingNoOverlaps;
 //!\brief A tag for the uncompressed FilterVector.
 struct Uncompressed_;
 typedef Tag<Uncompressed_> Uncompressed;
@@ -125,13 +121,33 @@ class FilterVector;
 template<typename TAlphabet, typename TSpec>
 class KmerShape;
 
+//!\brief A tag for the compressed array FilterVector.
+struct Hunter_;
+typedef Tag<Hunter_> Hunter;
+
+//!\brief A tag for the compressed array FilterVector.
+struct B3_;
+typedef Tag<B3_> B3;
+
+//!\brief A tag for the compressed array FilterVector.
+struct A1_;
+typedef Tag<A1_> A1;
+
+//!\brief A tag for the compressed array FilterVector.
+struct A2_;
+typedef Tag<A2_> A2;
+
+//!\brief A tag for the compressed array FilterVector.
+struct A3_;
+typedef Tag<A3_> A3;
+
 
 // --------------------------------------------------------------------------
 // Class KmerFilter
 // --------------------------------------------------------------------------
 
 //!\brief The KmerFilter class.
-template<typename TValue = Dna, typename TSpec = DirectAddressing, typename TFilterVector = Uncompressed, typename TSpec2 = SimpleShape>
+template<typename TValue = Dna, typename TSpec = DirectAddressing, typename TFilterVector = Uncompressed, typename TSpec2 = Simple>
 class KmerFilter;
 
 // ==========================================================================
@@ -225,54 +241,6 @@ inline void insertKmer(KmerFilter<TValue, TSpec, TFilterVector, TSpec2> &  me, c
         }
         me.filterVector.compress(i);
         close(seqFileIn); // No rewind() for FormattedFile ?
-    }
-}
-
-/*!
- * \brief Adds all fasta files from a directory to the respective bins.
- * \param me The KmerFilter instance.
- * \param baseDir The directory containing the fasta files in a "bins" subdirectory.
- * \param threads Number of threads to use.
- *
- * The fasta files are expected to follow the pattern <baseDir>/bins/bin_xxxx.fasta, where xxxx stands for the bin
- * number. All bin numbers must have the same number of digits as the total number of bins. E.g. for 8192 bins, the
- * bins are expected to be named bin_0000.fasta, bin_0001.fasta, ..., bin_8191.fasta; or for 64 bins: bin_00.fasta,
- * bin_01.fasta, ..., bin_63.fasta.
- * Up to <threads> fasta files are added to the filterVector at the same time.
- */
-template<typename TValue, typename TSpec, typename TFilterVector, typename TSpec2>
-inline void insertKmerDir(KmerFilter<TValue, TSpec, TFilterVector, TSpec2> &  me, const char * baseDir, uint8_t threads)
-{
-    Semaphore thread_limiter(threads);
-    std::mutex mtx;
-    std::vector<std::future<void>> tasks;
-
-    uint16_t bins = me.noOfBins;
-    for (uint8_t c = 0; c < me.filterVector.noOfChunks; ++c)
-    {
-        me.filterVector.decompress(c);
-        for(int16_t i = 0; i < bins; ++i)
-        {
-            CharString file(baseDir);
-            append(file, CharString(std::to_string(bins)));
-            append(file, CharString{"/bins/bin_"});
-            append(file, CharString(std::string(numDigits(bins)-numDigits(i), '0') + (std::to_string(i))));
-            append(file, CharString(".fasta"));
-            tasks.emplace_back(
-                std::async(std::launch::async, [=, &thread_limiter, &me, &mtx] {
-                    Critical_section _(thread_limiter);
-                    insertKmer(me, toCString(file), i, true, c);
-                    mtx.lock();
-                    std::cerr << "IBF Bin " << i << " done." << '\n';
-                    mtx.unlock();
-                })
-            );
-        }
-
-        for (auto &&task : tasks){
-            task.get();
-        }
-        me.filterVector.compress(c);
     }
 }
 
