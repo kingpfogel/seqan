@@ -93,7 +93,7 @@ public:
     //!\brief The bit vector storing the bloom filters.
     FilterVector<TFilterVector>                              filterVector;
     //!\brief The shape to be used in the Filter.
-    KmerShape<TValue, TSpec2>                                shape;
+    //KmerShape<TValue, TSpec2>                                shape;
     //!\brief Size in bits of the meta data.
     static const typename Value<KmerFilter>::filterMetadataSize filterMetadataSize{256};
     //!\brief A ungapped Shape over our filter alphabet.
@@ -218,25 +218,31 @@ public:
             filterVector.compress(chunk);
         }
     }
-
-    std::vector<uint64_t> selectHelper(OverlappingKmers const &, TString const & text)
+    void resizeShape(TShape)
+    {
+    }
+    void resizeShape(Shape<TValue, SimpleShape> & shape)
+    {
+        resize(shape, kmerSize);
+    }
+    std::vector<uint64_t> selectHelper(OverlappingKmers const &, TString const & text, TShape kmerShape)
     {
         uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
         std::vector<uint64_t> kmerHashes(possible, 0);
 
         //TShape kmerShape;
-        shape.resizeShape(kmerSize);
-        //resize(kmerShape, kmerSize);
-        hashInit(shape.shape, begin(text));
+        //shape.resizeShape(kmerSize);
+        resizeShape(kmerShape);
+        hashInit(kmerShape, begin(text));
         auto it = begin(text);
         for (uint16_t i = 0; i < possible; ++i)
         {
-            kmerHashes[i] = hashNext(shape.shape, it);
+            kmerHashes[i] = hashNext(kmerShape, it);
             ++it;
         }
         return kmerHashes;
     }
-    std::vector<uint64_t> selectHelper(NonOverlappingKmers const &, TString const & text)
+    std::vector<uint64_t> selectHelper(NonOverlappingKmers const &, TString const & text, TShape kmerShape)
     {
         uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
 
@@ -247,13 +253,13 @@ public:
             noOfKmerHashes -= 1;
         }
         std::vector<uint64_t> kmerHashes(noOfKmerHashes, 0);
-        shape.resizeShape(kmerSize);
-        hashInit(shape.shape, begin(text));
+        resizeShape(kmerShape);
+        hashInit(kmerShape, begin(text));
         auto it = begin(text);
         uint32_t c = 0;
         for (uint32_t i = 0; i < possible; ++i)
         {
-            uint64_t kmerHash = hashNext(shape.shape, it);
+            uint64_t kmerHash = hashNext(kmerShape, it);
             if(i-c*kmerSize == 0)
             {
                 if(c < ((length(text) - x) / kmerSize))
@@ -277,7 +283,8 @@ public:
      */
     void select(std::vector<uint16_t> & counts, TString const & text) // TODO uint16_t
     {
-        std::vector<uint64_t> kmerHashes = selectHelper(TSelector, text);
+        TShape kmerShape;
+        std::vector<uint64_t> kmerHashes = selectHelper(TSelector, text, kmerShape);
 
         for (uint64_t kmerHash : kmerHashes)
         {
@@ -378,12 +385,12 @@ public:
     inline void insertKmer(TString const & text, TBin && binNo, TChunk && chunkNo)
     {
 
-        //TShape kmerShape;
-        shape.resizeShape(kmerSize);
+        TShape kmerShape;
+        resizeShape(kmerSize);
         //resize(kmerShape, kmerSize);
-        hashInit(shape.shape, begin(text));
+        hashInit(kmerShape, begin(text));
 
-        for (uint64_t i = 0; i < length(text) - length(shape.shape) + 1; ++i)
+        for (uint64_t i = 0; i < length(text) - length(kmerShape) + 1; ++i)
         {
             uint64_t kmerHash = hashNext(shape.shape, begin(text) + i);
 

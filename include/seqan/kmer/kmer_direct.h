@@ -82,7 +82,7 @@ public:
     //!\brief The bit vector storing the bloom filters.
     FilterVector<TFilterVector>         filterVector;
     //!\brief The shape to be used in the Filter.
-    KmerShape<TValue, TSpec2>         shape;
+    //KmerShape<TValue, TSpec2>         shape;
     //!\brief How many bits we can represent in the biggest unsigned int available.
     static const typename Value<KmerFilter>::intSize    intSize{0x40};
     //!\brief Size in bits of the meta data.
@@ -90,7 +90,7 @@ public:
     //!\brief The number of used hash functions. Not used but needed for meta data template functions.
     typename Value<KmerFilter>::blockBitSize    noOfHashFunc{1};
     //!\brief A ungapped Shape over our filter alphabet.
-    //typedef Shape<TValue, TSpec2>  TShape;
+    typedef Shape<TValue, TSpec2>  TShape;
 
     /* rule of six */
     /*\name Constructor, destructor and assignment
@@ -230,25 +230,32 @@ public:
             filterVector.compress(chunk);
         }
     }
+    template<typename TShape>
+    void resizeShape(TShape)
+    {
+    }
+    template<TValue>
+    void resizeShape(Shape<TValue, SimpleShape> & shape)
+    {
+        resize(shape, kmerSize);
+    }
 
-    std::vector<uint64_t> selectHelper(OverlappingKmers const &, TString const & text)
+    std::vector<uint64_t> selectHelper(OverlappingKmers const &, TString const & text, TShape kmerShape)
     {
         uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
         std::vector<uint64_t> kmerHashes(possible, 0);
-
-        //TShape kmerShape;
-        shape.resizeShape(kmerSize);
-        //resize(kmerShape, kmerSize);
-        hashInit(shape.shape, begin(text));
+       // shape.resizeShape(kmerSize);
+        resizeShape(kmerShape);
+        hashInit(kmerShape, begin(text));
         auto it = begin(text);
         for (uint16_t i = 0; i < possible; ++i)
         {
-            kmerHashes[i] = hashNext(shape.shape, it);
+            kmerHashes[i] = hashNext(kmerShape, it);
             ++it;
         }
         return kmerHashes;
     }
-    std::vector<uint64_t> selectHelper(NonOverlappingKmers const &, TString const & text)
+    std::vector<uint64_t> selectHelper(NonOverlappingKmers const &, TString const & text, TShape kmerShape)
     {
         uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
 
@@ -259,13 +266,13 @@ public:
             noOfKmerHashes -= 1;
         }
         std::vector<uint64_t> kmerHashes(noOfKmerHashes, 0);
-        shape.resizeShape(kmerSize);
-        hashInit(shape.shape, begin(text));
+        resizeShape(kmerShape);
+        hashInit(kmerShape, begin(text));
         auto it = begin(text);
         uint32_t c = 0;
         for (uint32_t i = 0; i < possible; ++i)
         {
-            uint64_t kmerHash = hashNext(shape.shape, it);
+            uint64_t kmerHash = hashNext(kmerShape, it);
             if(i-c*kmerSize == 0)
             {
                 if(c < ((length(text) - x) / kmerSize))
@@ -290,8 +297,8 @@ public:
      */
     void select(std::vector<uint16_t> & counts, TString const & text)
     {
-
-        std::vector<uint64_t> kmerHashes = selectHelper(TSelector, text);
+        TShape kmerShape;
+        std::vector<uint64_t> kmerHashes = selectHelper(TSelector, text, kmerShape);
 
         for (uint64_t kmerHash : kmerHashes)
         {
@@ -365,11 +372,11 @@ public:
     template<typename TBin, typename TChunk>
     inline void insertKmer(TString const & text,TBin && binNo, TChunk && chunkNo)
     {
-        //TShape kmerShape;
-        shape.resizeShape(kmerSize);
-        //resize(kmerShape, kmerSize);
+        TShape kmerShape;
+        //shape.resizeShape(kmerSize);
+        resizeShape(kmerShape);
         hashInit(shape.shape, begin(text));
-        for (uint64_t i = 0; i < length(text) - length(shape.shape) + 1; ++i)
+        for (uint64_t i = 0; i < length(text) - length(kmerShape) + 1; ++i)
         {
             uint64_t kmerHash = hashNext(shape.shape, begin(text) + i);
             uint64_t vecIndex = kmerHash * blockBitSize + binNo;
