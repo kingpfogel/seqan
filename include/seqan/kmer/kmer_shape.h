@@ -24,7 +24,7 @@ namespace seqan {
         ~KmerShape() = default;
         typedef Shape<TAlphabet, ShapeIlieB3> TShape;
         TShape shape;
-        void resizeShape(uint64_t kmerSize)
+        void resizeShape(uint64_t )
         {
         }
     };
@@ -37,7 +37,7 @@ namespace seqan {
         ~KmerShape() = default;
         typedef Shape<TAlphabet, ShapePatternHunter> TShape;
         TShape shape;
-        void resizeShape(uint64_t &)
+        void resizeShape(uint64_t )
         {
         }
     };
@@ -60,7 +60,7 @@ namespace seqan {
         ~KmerShape() = default;
         typedef Shape<TAlphabet, ShapeIlieA2> TShape;
         TShape shape;
-        void resizeShape(uint64_t &)
+        void resizeShape(uint64_t )
         {
         }
     };
@@ -71,7 +71,7 @@ namespace seqan {
         ~KmerShape() = default;
         typedef Shape<TAlphabet, ShapeIlieA3> TShape;
         TShape shape;
-        void resizeShape(uint64_t &)
+        void resizeShape(uint64_t )
         {
         }
     };

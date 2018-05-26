@@ -60,8 +60,8 @@ namespace seqan{
  * ```
  *
  */
-template<typename TValue, typename TFilterVector, typename TSpec2>
-class KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2>
+template<typename TValue, typename TFilterVector, typename TSpec2, typename TSelector>
+class KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, typename TSelector>
 {
 public:
     //!\brief The type of the variables.
@@ -116,13 +116,13 @@ public:
     }
 
     //!\brief Copy constructor
-    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> & other)
+    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> & other)
     {
         *this = other;
     }
 
     //!\brief Copy assignment
-    KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> & other)
+    KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> & other)
     {
         noOfBins = other.noOfBins;
         kmerSize = other.kmerSize;
@@ -136,13 +136,13 @@ public:
     }
 
     //!\brief Move constrcutor
-    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> && other)
+    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> && other)
     {
         *this = std::move(other);
     }
 
     //!\brief Move assignment
-    KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2> && other)
+    KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> && other)
     {
         noOfBins = std::move(other.noOfBins);
         kmerSize = std::move(other.kmerSize);
@@ -156,8 +156,8 @@ public:
     }
 
     //!\brief Destructor
-    // ~KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2>() = default;
-    ~KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2>() = default;
+    // ~KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector>() = default;
+    ~KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector>() = default;
     //!\}
 
     /*!
@@ -231,12 +231,7 @@ public:
         }
     }
 
-    /*!
-     * \brief Counts number of occurences in each bin for a given text.
-     * \param counts Vector to be filled with counts.
-     * \param text Text to count occurences for.
-     */
-    void select(std::vector<uint16_t> & counts, TString const & text)
+    std::vector<uint64_t> selectHelper(OverlappingKmers const &, TString const & text)
     {
         uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
         std::vector<uint64_t> kmerHashes(possible, 0);
@@ -251,6 +246,52 @@ public:
             kmerHashes[i] = hashNext(shape.shape, it);
             ++it;
         }
+        return kmerHashes;
+    }
+    std::vector<uint64_t> selectHelper(NonOverlappingKmers const &, TString const & text)
+    {
+        uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
+
+        uint16_t x = length(text) % kmerSize;
+        uint16_t noOfKmerHashes = ((length(text) - x) / kmerSize)+1;
+        if (x == 0)
+        {
+            noOfKmerHashes -= 1;
+        }
+        std::vector<uint64_t> kmerHashes(noOfKmerHashes, 0);
+        shape.resizeShape(kmerSize);
+        hashInit(shape.shape, begin(text));
+        auto it = begin(text);
+        uint32_t c = 0;
+        for (uint32_t i = 0; i < possible; ++i)
+        {
+            uint64_t kmerHash = hashNext(shape.shape, it);
+            if(i-c*kmerSize == 0)
+            {
+                if(c < ((length(text) - x) / kmerSize))
+                {
+                    kmerHashes[c] = kmerHash;
+                }
+                ++c;
+            }
+            if(i == possible-1u && x != 0u)
+            {
+                kmerHashes[c] = kmerHash;
+            }
+            ++it;
+        }
+        return kmerHashes;
+    }
+
+    /*!
+     * \brief Counts number of occurences in each bin for a given text.
+     * \param counts Vector to be filled with counts.
+     * \param text Text to count occurences for.
+     */
+    void select(std::vector<uint16_t> & counts, TString const & text)
+    {
+
+        std::vector<uint64_t> kmerHashes = selectHelper(TSelector, text);
 
         for (uint64_t kmerHash : kmerHashes)
         {

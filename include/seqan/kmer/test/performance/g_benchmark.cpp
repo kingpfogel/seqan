@@ -87,7 +87,7 @@ static void insertKmer_IBF(benchmark::State& state)
     append(storage, CharString("_"));
     append(storage, CharString(std::to_string(bits)));
 
-    append(storage, CharString("_ibf_A1.filter"));
+    append(storage, CharString("_ibf_B3.filter"));
     store(ibf, storage);
 
     state.counters["Size"] = ibf.filterVector.size_in_mega_bytes();
@@ -102,7 +102,7 @@ static void select_IBF(benchmark::State& state)
     auto bits = state.range(2);
     auto hash = state.range(3);
     //uint16_t t = std::floor(100/k)-e;
-    uint16_t t = 100-k+1 - k*e;
+    uint16_t t = 100-15+1 - 9*e;
     KmerFilter<TAlphabet, InterleavedBloomFilter/*NoOverlaps*/, TFilter, TSpec2> ibf(bins, hash, k, (1ULL<<bits));
 
     CharString storage("");
@@ -112,7 +112,7 @@ static void select_IBF(benchmark::State& state)
     append(storage, CharString("_"));
     append(storage, CharString(std::to_string(bits)));
 
-    append(storage, CharString("_ibf.filter"));
+    append(storage, CharString("_ibf_B3.filter"));
     retrieve(ibf, storage);
 
     double verifications{0};
@@ -287,7 +287,7 @@ static void IBFArguments(benchmark::internal::Benchmark* b)
     //b->Args({64, 18, 31, 3});
     for (int32_t binNo = 64; binNo <= 8192; binNo *= 2)
     {
-        if ((binNo > 1 && binNo <= 64) || binNo==128 || binNo==512 || binNo==1024 || binNo==2048 || binNo==4096 || binNo==8192)
+        if ((binNo > 1 && binNo < 64) || binNo==128 || binNo==512 || binNo==2048 || binNo==4096 || binNo==8192)
             continue;
         for (int32_t k = 19; k < 20; ++k)
         {
@@ -319,7 +319,10 @@ static void IBFArguments(benchmark::internal::Benchmark* b)
 }*/
 
 //BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, Simple)->Apply(IBFArguments);
-BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, A1)->Apply(IBFArguments);
+//BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, A1)->Apply(IBFArguments);
+BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, B3)->Apply(IBFArguments);
+BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, B3)->Apply(IBFArguments)->UseManualTime();
+
 //BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, Simple)->Apply(IBFArguments)->UseManualTime();
 // BENCHMARK_TEMPLATE(select_IBF, Dna, CompressedSimple)->Apply(IBFArguments)->UseManualTime();
 // BENCHMARK_TEMPLATE(select_IBF, Dna, CompressedArray)->Apply(IBFWhichArguments)->UseManualTime();
