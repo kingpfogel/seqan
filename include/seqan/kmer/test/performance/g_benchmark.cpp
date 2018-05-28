@@ -51,14 +51,14 @@ int numDigits(T number)
     }
     return digits;
 }
-template <typename TAlphabet, typename TFilter, typename TSpec2>
+template <typename TAlphabet, typename TFilter, typename TShapeSpec, typename TSelector>
 static void insertKmer_IBF(benchmark::State& state)
 {
     auto bins = state.range(0);
     auto k = state.range(1);
     auto bits = state.range(2);
     auto hash = state.range(3);
-    KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter, TSpec2> ibf (bins, hash, k, (1ULL<<bits));
+    KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter, TShapeSpec, TSelector> ibf (bins, hash, k, (1ULL<<bits));
 
     for (auto _ : state)
     {
@@ -94,16 +94,17 @@ static void insertKmer_IBF(benchmark::State& state)
 }
 
 
-template <typename TAlphabet, typename TFilter, typename TSpec2>
+template <typename TAlphabet, typename TFilter, typename TShapeSpec, typename TSelector>
 static void select_IBF(benchmark::State& state)
 {
     auto bins = state.range(0);
     auto k = state.range(1);
     auto bits = state.range(2);
     auto hash = state.range(3);
-    //uint16_t t = std::floor(100/k)-e;
-    uint16_t t = 100-15+1 - 9*e;
-    KmerFilter<TAlphabet, InterleavedBloomFilter/*NoOverlaps*/, TFilter, TSpec2> ibf(bins, hash, k, (1ULL<<bits));
+    //uint16_t t = 100-k+1 - k*e;
+    uint16_t t = std::floor(100/k)-e;
+    //uint16_t t = 100-15+1 - 9*e;
+    KmerFilter<TAlphabet, InterleavedBloomFilter/*NoOverlaps*/, TFilter, TShapeSpec, TSelector> ibf(bins, hash, k, (1ULL<<bits));
 
     CharString storage("");
     append(storage, CharString(std::to_string(bins)));
@@ -112,7 +113,7 @@ static void select_IBF(benchmark::State& state)
     append(storage, CharString("_"));
     append(storage, CharString(std::to_string(bits)));
 
-    append(storage, CharString("_ibf_B3.filter"));
+    append(storage, CharString("_ibf.filter"));
     retrieve(ibf, storage);
 
     double verifications{0};
@@ -182,12 +183,12 @@ static void select_IBF(benchmark::State& state)
     }
 }
 
-template <typename TAlphabet, typename TFilter, typename TSpec2>
+template <typename TAlphabet, typename TFilter, typename TShapeSpec, typename TSelector>
 static void insertKmer_DA(benchmark::State& state)
 {
     auto bins = state.range(0);
     auto k = state.range(1);
-    KmerFilter<TAlphabet, DirectAddressingNoOverlaps, TFilter, TSpec2> da (bins, k);
+    KmerFilter<TAlphabet, DirectAddressing, TFilter, TShapeSpec, TSelector> da (bins, k);
 
     for (auto _ : state)
     {
@@ -220,12 +221,12 @@ static void insertKmer_DA(benchmark::State& state)
     state.counters["Size"] = da.filterVector.size_in_mega_bytes();
 }
 
-template <typename TAlphabet, typename TFilter>
+template <typename TAlphabet, typename TFilter, typename TShapeSpec, typename TSelector>
 static void select_DA(benchmark::State& state)
 {
     auto bins = state.range(0);
     auto k = state.range(1);
-    KmerFilter<TAlphabet, DirectAddressing, TFilter> da (bins, k);
+    KmerFilter<TAlphabet, DirectAddressing, TFilter, TShapeSpec, TSelector> da (bins, k);
 
     uint64_t readNo{1};
 
@@ -287,16 +288,17 @@ static void IBFArguments(benchmark::internal::Benchmark* b)
     //b->Args({64, 18, 31, 3});
     for (int32_t binNo = 64; binNo <= 8192; binNo *= 2)
     {
-        if ((binNo > 1 && binNo < 64) || binNo==128 || binNo==512 || binNo==2048 || binNo==4096 || binNo==8192)
+        if ((binNo > 1 && binNo <= 64) || binNo==128 || binNo==512 || binNo==1024 || binNo==2048 || binNo==4096 || binNo==8192)
             continue;
         for (int32_t k = 19; k < 20; ++k)
         {
             // 35 = 4GiB, 36 = 8GiB, 37 = 16GiB
-            for (int32_t bits = 30; bits <= 31; ++bits )
+            for (int32_t bits = 30; bits <= 33; ++bits )
             {
+                if(bits == 31)
+                    continue;
                 for (int32_t hashNo = 3; hashNo < 4; ++hashNo)
                 {
-
                    b->Args({binNo, k, bits, hashNo});
                 }
             }
@@ -320,9 +322,9 @@ static void IBFArguments(benchmark::internal::Benchmark* b)
 
 //BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, Simple)->Apply(IBFArguments);
 //BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, A1)->Apply(IBFArguments);
-BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, B3)->Apply(IBFArguments);
-BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, B3)->Apply(IBFArguments)->UseManualTime();
-
+//BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, SimpleShape)->Apply(IBFArguments);
+//BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, OverlappingKmers)->Apply(IBFArguments)->UseManualTime();
+BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, NonOverlappingKmers)->Apply(IBFArguments)->UseManualTime();
 //BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, Simple)->Apply(IBFArguments)->UseManualTime();
 // BENCHMARK_TEMPLATE(select_IBF, Dna, CompressedSimple)->Apply(IBFArguments)->UseManualTime();
 // BENCHMARK_TEMPLATE(select_IBF, Dna, CompressedArray)->Apply(IBFWhichArguments)->UseManualTime();

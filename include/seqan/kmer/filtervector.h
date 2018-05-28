@@ -123,9 +123,7 @@ struct FilterVector<Uncompressed>
     FilterVector(CharString fileName)
     {
         uncompressed_vector = std::make_unique<sdsl::bit_vector>(0,0);
-
         sdsl::load_from_file(*uncompressed_vector, toCString(fileName));
-
         noOfBits = uncompressed_vector->size();
         noOfBits -= FILTER_METADATA_SIZE;
         noOfChunks = 1;

@@ -153,7 +153,7 @@ typedef Tag<NonOverlappingKmers_> NonOverlappingKmers;
 // --------------------------------------------------------------------------
 
 //!\brief The KmerFilter class.
-template<typename TValue = Dna, typename TSpec = DirectAddressing, typename TFilterVector = Uncompressed, typename TSpec2 = Simple, typename TSelector = OverlappingKmers>
+template<typename TValue = Dna, typename TSpec = DirectAddressing, typename TFilterVector = Uncompressed, typename TSpec2 = SimpleShape, typename TSelector = OverlappingKmers>
 class KmerFilter;
 
 // ==========================================================================
@@ -161,7 +161,7 @@ class KmerFilter;
 // ==========================================================================
 
 //!\brief Type definition for variables.
-template<typename TValue, typename TSpec, typename TFilterVector, typename TSpec2, typename TSelector, typename TSelector>
+template<typename TValue, typename TSpec, typename TFilterVector, typename TSpec2, typename TSelector>
 struct Value<KmerFilter<TValue, TSpec, TFilterVector, TSpec2, TSelector> >
 {
     typedef uint16_t noOfBins;
@@ -256,7 +256,7 @@ inline void insertKmer(KmerFilter<TValue, TSpec, TFilterVector, TSpec2, TSelecto
  * \param counts Vector of length binNo to save counts to.
  * \param text A single text to count all contained k-mers for.
  */
-template<typename TValue, typename TSpec,  typename TFilterVector, typename TSpec2>
+template<typename TValue, typename TSpec,  typename TFilterVector, typename TSpec2, typename TSelector>
 inline void select(KmerFilter<TValue, TSpec, TFilterVector, TSpec2, TSelector> &  me, std::vector<uint16_t> & counts, String<TValue> const & text)
 {
     me.select(counts, text);

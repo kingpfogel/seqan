@@ -44,5 +44,5 @@
 //#include <seqan/kmer/kmer_nonoverlapping_direct.h>
 #include <seqan/kmer/kmer_ibf.h>
 //#include <seqan/kmer/kmer_nonoverlapping_ibf.h>
-#include <seqan/kmer/kmer_shape.h>
+//#include <seqan/kmer/kmer_shape.h>
 #endif

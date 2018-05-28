@@ -97,8 +97,8 @@ public:
     //!\brief Size in bits of the meta data.
     static const typename Value<KmerFilter>::filterMetadataSize filterMetadataSize{256};
     //!\brief A ungapped Shape over our filter alphabet.
-    typedef Shape<TValue, SimpleShape>  TShape;
-
+    typedef Shape<TValue, TSpec2>  TShape;
+    typedef TSelector Selector;
     /* rule of six */
     /*\name Constructor, destructor and assignment
      * \{
@@ -218,11 +218,15 @@ public:
             filterVector.compress(chunk);
         }
     }
-    void resizeShape(TShape)
+    template<typename TShapeSpec>
+    void resizeShape(TShapeSpec)
     {
+        //std::cout << "resize arbitrary shape" << std::endl;
+
     }
-    void resizeShape(Shape<TValue, SimpleShape> & shape)
+    void resizeShape(Shape<Dna, SimpleShape> & shape)
     {
+       // std::cout << "resize SimpleShape " << kmerSize<< std::endl;
         resize(shape, kmerSize);
     }
     std::vector<uint64_t> selectHelper(OverlappingKmers const &, TString const & text, TShape kmerShape)
@@ -284,7 +288,8 @@ public:
     void select(std::vector<uint16_t> & counts, TString const & text) // TODO uint16_t
     {
         TShape kmerShape;
-        std::vector<uint64_t> kmerHashes = selectHelper(TSelector, text, kmerShape);
+        Selector sel;
+        std::vector<uint64_t> kmerHashes = selectHelper(sel, text, kmerShape);
 
         for (uint64_t kmerHash : kmerHashes)
         {
@@ -386,13 +391,13 @@ public:
     {
 
         TShape kmerShape;
-        resizeShape(kmerSize);
+        resizeShape(kmerShape);
         //resize(kmerShape, kmerSize);
         hashInit(kmerShape, begin(text));
 
         for (uint64_t i = 0; i < length(text) - length(kmerShape) + 1; ++i)
         {
-            uint64_t kmerHash = hashNext(shape.shape, begin(text) + i);
+            uint64_t kmerHash = hashNext(kmerShape, begin(text) + i);
 
             for(uint8_t i = 0; i < noOfHashFunc ; ++i)
             {

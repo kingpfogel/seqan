@@ -6,8 +6,6 @@ typedef Tag<OverlappingKmers_> OverlappingKmers;
 struct NonOverlappingKmers_;
 typedef Tag<NonOverlappingKmers_> NonOverlappingKmers;
 
-template<typename TSelector>
-std::vector<uint64_t> selectHelper(TSelector const & selector, TString const & text)
 std::vector<uint64_t> selectHelper(OverlappingKmers const &, TString const & text)
 {
     uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
@@ -36,10 +34,7 @@ std::vector<uint64_t> selectHelper(NonOverlappingKmers const &, TString const & 
         noOfKmerHashes -= 1;
     }
     std::vector<uint64_t> kmerHashes(noOfKmerHashes, 0);
-
-    //TShape kmerShape;
     shape.resizeShape(kmerSize);
-    //resize(kmerShape, kmerSize);
     hashInit(shape.shape, begin(text));
     auto it = begin(text);
     uint32_t c = 0;
