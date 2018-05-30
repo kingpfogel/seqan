@@ -648,6 +648,7 @@ namespace seqan
     inline void
     hashInit(Shape<TValue, GappedShape<TSpec> > &, TIter &)
     {
+        std::cout << "et voila" << std::endl;
     }
 
     template <typename TValue, typename TSpec, typename TIter>

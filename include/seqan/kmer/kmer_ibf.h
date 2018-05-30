@@ -35,7 +35,7 @@
 
 #ifndef INCLUDE_SEQAN_KMER_KMER_IBF_H_
 #define INCLUDE_SEQAN_KMER_KMER_IBF_H_
-
+#include <seqan/index.h>
 // --------------------------------------------------------------------------
 // Class KmerFilter using an interleaved bloom filter
 // --------------------------------------------------------------------------
@@ -229,7 +229,7 @@ public:
        // std::cout << "resize SimpleShape " << kmerSize<< std::endl;
         resize(shape, kmerSize);
     }
-    std::vector<uint64_t> selectHelper(OverlappingKmers const &, TString const & text, TShape kmerShape)
+    inline std::vector<uint64_t> selectHelper(OverlappingKmers const &, TString const & text, TShape kmerShape)
     {
         uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
         std::vector<uint64_t> kmerHashes(possible, 0);
@@ -246,7 +246,7 @@ public:
         }
         return kmerHashes;
     }
-    std::vector<uint64_t> selectHelper(NonOverlappingKmers const &, TString const & text, TShape kmerShape)
+    inline std::vector<uint64_t> selectHelper(NonOverlappingKmers const &, TString const & text, TShape kmerShape)
     {
         uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
 

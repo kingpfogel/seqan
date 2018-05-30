@@ -104,7 +104,7 @@ static void select_IBF(benchmark::State& state)
     //uint16_t t = 100-k+1 - k*e;
     uint16_t t = std::floor(100/k)-e;
     //uint16_t t = 100-15+1 - 9*e;
-    KmerFilter<TAlphabet, InterleavedBloomFilter/*NoOverlaps*/, TFilter, TShapeSpec, TSelector> ibf(bins, hash, k, (1ULL<<bits));
+    KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter, TShapeSpec, TSelector> ibf(bins, hash, k, (1ULL<<bits));
 
     CharString storage("");
     append(storage, CharString(std::to_string(bins)));
@@ -323,8 +323,8 @@ static void IBFArguments(benchmark::internal::Benchmark* b)
 //BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, Simple)->Apply(IBFArguments);
 //BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, A1)->Apply(IBFArguments);
 //BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, SimpleShape)->Apply(IBFArguments);
-//BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, OverlappingKmers)->Apply(IBFArguments)->UseManualTime();
-BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, NonOverlappingKmers)->Apply(IBFArguments)->UseManualTime();
+BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, ShapePatternHunter, OverlappingKmers)->Apply(IBFArguments)->UseManualTime();
+//BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, NonOverlappingKmers)->Apply(IBFArguments)->UseManualTime();
 //BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, Simple)->Apply(IBFArguments)->UseManualTime();
 // BENCHMARK_TEMPLATE(select_IBF, Dna, CompressedSimple)->Apply(IBFArguments)->UseManualTime();
 // BENCHMARK_TEMPLATE(select_IBF, Dna, CompressedArray)->Apply(IBFWhichArguments)->UseManualTime();
