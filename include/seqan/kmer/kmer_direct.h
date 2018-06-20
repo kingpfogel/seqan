@@ -60,8 +60,8 @@ namespace seqan{
  * ```
  *
  */
-template<typename TValue, typename TFilterVector, typename TSpec2, typename TSelector>
-class KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector>
+template<typename TValue, typename TFilterVector, typename TShapeSpec, unsigned offset>
+class KmerFilter<TValue, DirectAddressing, TFilterVector, TShapeSpec, offset>
 {
 public:
     //!\brief The type of the variables.
@@ -82,7 +82,7 @@ public:
     //!\brief The bit vector storing the bloom filters.
     FilterVector<TFilterVector>         filterVector;
     //!\brief The shape to be used in the Filter.
-    //KmerShape<TValue, TSpec2>         shape;
+    //KmerShape<TValue, TShapeSpec>         shape;
     //!\brief How many bits we can represent in the biggest unsigned int available.
     static const typename Value<KmerFilter>::intSize    intSize{0x40};
     //!\brief Size in bits of the meta data.
@@ -90,8 +90,8 @@ public:
     //!\brief The number of used hash functions. Not used but needed for meta data template functions.
     typename Value<KmerFilter>::blockBitSize    noOfHashFunc{1};
     //!\brief A ungapped Shape over our filter alphabet.
-    typedef Shape<TValue, TSpec2>  TShape;
-    typedef TSelector Selector;
+    typedef Shape<TValue, TShapeSpec>  TShape;
+    KmerOffset<(offset==1u)> kmerOffset;
     /* rule of six */
     /*\name Constructor, destructor and assignment
      * \{
@@ -116,13 +116,13 @@ public:
     }
 
     //!\brief Copy constructor
-    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> & other)
+    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector, TShapeSpec, offset> & other)
     {
         *this = other;
     }
 
     //!\brief Copy assignment
-    KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> & other)
+    KmerFilter<TValue, DirectAddressing, TFilterVector, TShapeSpec, offset> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector, TShapeSpec, offset> & other)
     {
         noOfBins = other.noOfBins;
         kmerSize = other.kmerSize;
@@ -136,13 +136,13 @@ public:
     }
 
     //!\brief Move constrcutor
-    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> && other)
+    KmerFilter(KmerFilter<TValue, DirectAddressing, TFilterVector, TShapeSpec, offset> && other)
     {
         *this = std::move(other);
     }
 
     //!\brief Move assignment
-    KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector> && other)
+    KmerFilter<TValue, DirectAddressing, TFilterVector, TShapeSpec, offset> & operator=(KmerFilter<TValue, DirectAddressing, TFilterVector, TShapeSpec, offset> && other)
     {
         noOfBins = std::move(other.noOfBins);
         kmerSize = std::move(other.kmerSize);
@@ -156,8 +156,8 @@ public:
     }
 
     //!\brief Destructor
-    // ~KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector>() = default;
-    ~KmerFilter<TValue, DirectAddressing, TFilterVector, TSpec2, TSelector>() = default;
+    // ~KmerFilter<TValue, DirectAddressing, TFilterVector, TShapeSpec, offset>() = default;
+    ~KmerFilter<TValue, DirectAddressing, TFilterVector, TShapeSpec, offset>() = default;
     //!\}
 
     /*!
@@ -230,8 +230,8 @@ public:
             filterVector.compress(chunk);
         }
     }
-    template<typename TShapeSpec>
-    void resizeShape(TShapeSpec)
+    template<typename T>
+    void resizeShape(T)
     {
       //  std::cout << "resize arbitrary shape" << std::endl;
 
@@ -242,7 +242,7 @@ public:
         resize(shape, kmerSize);
     }
 
-    std::vector<uint64_t> selectHelper(OverlappingKmers const &, TString const & text, TShape kmerShape)
+    std::vector<uint64_t> selectHelper(CompleteCoverage const &, TString const & text, TShape kmerShape)
     {
      //   std::cout << "selectHelper OverlappingKmers" << std::endl;
         uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
@@ -258,14 +258,18 @@ public:
         }
         return kmerHashes;
     }
-    std::vector<uint64_t> selectHelper(NonOverlappingKmers const &, TString const & text, TShape kmerShape)
+
+    std::vector<uint64_t> selectHelper(IncompleteCoverage const &, TString const & text, TShape kmerShape)
     {
       //  std::cout << "selectHelper NonOverlappingKmers" << std::endl;
 
-        uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
+        uint16_t possible = length(text) - kmerSize + 1;
+        // Supports text lengths up to 65535 + k
 
-        uint16_t x = length(text) % kmerSize;
-        uint16_t noOfKmerHashes = ((length(text) - x) / kmerSize)+1;
+        //uint16_t x = length(text) % kmerSize;
+        //uint16_t noOfKmerHashes = ((length(text) - x) / kmerSize)+1;
+        uint16_t x = (length(text) - kmerSize) % offset;
+        uint16_t noOfKmerHashes = 1 + (length(text) - kmerSize + offset - x) / offset;
         if (x == 0)
         {
             noOfKmerHashes -= 1;
@@ -273,10 +277,31 @@ public:
         std::vector<uint64_t> kmerHashes(noOfKmerHashes, 0);
         resizeShape(kmerShape);
         hashInit(kmerShape, begin(text));
+
         auto it = begin(text);
         uint32_t c = 0;
         for (uint32_t i = 0; i < possible; ++i)
         {
+            uint64_t kmerHash = hashNext(kmerShape, it);
+            if(i-c*offset == 0)
+            {
+                if(c < ((length(text) - kmerSize + offset - x) / offset))
+                {
+                    kmerHashes[c] = kmerHash;
+                }
+                ++c;
+            }
+            if(i == possible-1u && x != 0u)
+            {
+                kmerHashes[c] = kmerHash;
+            }
+            ++it;
+        }
+        //the new one
+
+        /*for (uint32_t i = 0; i < possible; ++i)
+        {
+            if(it == nextIt)
             uint64_t kmerHash = hashNext(kmerShape, it);
             if(i-c*kmerSize == 0)
             {
@@ -291,7 +316,7 @@ public:
                 kmerHashes[c] = kmerHash;
             }
             ++it;
-        }
+        }*/
         return kmerHashes;
     }
 
@@ -303,8 +328,8 @@ public:
     void select(std::vector<uint16_t> & counts, TString const & text)
     {
         TShape kmerShape;
-        Selector sel;
-        std::vector<uint64_t> kmerHashes = selectHelper(sel, text, kmerShape);
+        //Selector sel;
+        std::vector<uint64_t> kmerHashes = selectHelper(kmerOffset, text, kmerShape);
 
         for (uint64_t kmerHash : kmerHashes)
         {

@@ -40,7 +40,7 @@
 
 #include <seqan/seq_io.h>
 #include <seqan/kmer.h>
-
+#include <seqan/index.h>
 static const uint32_t filterMetadataSize = 256;
 static const uint8_t INT_WIDTH = 0x40;
 
@@ -66,9 +66,9 @@ int main()
     typedef InterleavedBloomFilter TSpec;
     // typedef DirectAddressing       TSpec;
 
-    // typedef Uncompressed TFilter;
+    typedef Uncompressed TFilter;
     // typedef CompressedSimple TFilter;
-    typedef CompressedArray TFilter;
+    //typedef CompressedArray TFilter;
 
     // Empty default constructor
     KmerFilter<Dna, TSpec, TFilter> ctor_empty;
