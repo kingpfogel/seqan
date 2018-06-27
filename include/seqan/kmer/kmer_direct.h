@@ -297,26 +297,7 @@ public:
             }
             ++it;
         }
-        //the new one
 
-        /*for (uint32_t i = 0; i < possible; ++i)
-        {
-            if(it == nextIt)
-            uint64_t kmerHash = hashNext(kmerShape, it);
-            if(i-c*kmerSize == 0)
-            {
-                if(c < ((length(text) - x) / kmerSize))
-                {
-                    kmerHashes[c] = kmerHash;
-                }
-                ++c;
-            }
-            if(i == possible-1u && x != 0u)
-            {
-                kmerHashes[c] = kmerHash;
-            }
-            ++it;
-        }*/
         return kmerHashes;
     }
 
