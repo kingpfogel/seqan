@@ -237,8 +237,8 @@ public:
         std::vector<uint64_t> kmerHashes(possible, 0);
        // shape.resizeShape(kmerSize);
         resizeShape(kmerShape);
-        hashInit(kmerShape, begin(text));
         auto it = begin(text);
+        hashInit(kmerShape, it);
         for (uint16_t i = 0; i < possible; ++i)
         {
             kmerHashes[i] = hashNext(kmerShape, it);
@@ -264,9 +264,9 @@ public:
         }
         std::vector<uint64_t> kmerHashes(noOfKmerHashes, 0);
         resizeShape(kmerShape);
-        hashInit(kmerShape, begin(text));
-
         auto it = begin(text);
+        hashInit(kmerShape, it);
+
         uint32_t c = 0;
         for (uint32_t i = 0; i < possible; ++i)
         {
@@ -401,12 +401,13 @@ public:
         TShape kmerShape;
         resizeShape(kmerShape);
         //resize(kmerShape, kmerSize);
-        hashInit(kmerShape, begin(text));
+        auto it = begin(text);
+        hashInit(kmerShape, it);
 
         for (uint64_t i = 0; i < length(text) - length(kmerShape) + 1; ++i)
         {
-            uint64_t kmerHash = hashNext(kmerShape, begin(text) + i);
-
+            uint64_t kmerHash = hashNext(kmerShape, it);
+            ++it;
             for(uint8_t i = 0; i < noOfHashFunc ; ++i)
             {
                 uint64_t vecIndex = preCalcValues[i] * kmerHash;

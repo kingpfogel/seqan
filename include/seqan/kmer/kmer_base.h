@@ -38,6 +38,7 @@
 
 #include <sdsl/bit_vectors.hpp>
 #include <seqan/seq_io.h>
+#include <seqan/index.h>
 #include <valarray>
 #include <algorithm>
 #include <future>
@@ -80,6 +81,17 @@ public:
     ~Critical_section() { s.notify(); }
 };
 
+template <typename T>
+int numDigits(T number)
+{
+    int digits = 0;
+    if (number <= 0) digits = 1; // remove this line if '-' counts as a digit
+    while (number) {
+        number /= 10;
+        digits++;
+    }
+    return digits;
+}
 
 // ==========================================================================
 // Tags, Classes, Enums
@@ -113,15 +125,6 @@ typedef Tag<CompressedArray_> CompressedArray;
 template<typename TSpec>
 class FilterVector;
 
-//!\brief A tag to select every kmer from a pattern. default.
-struct OverlappingKmers_;
-typedef Tag<OverlappingKmers_> OverlappingKmers;
-
-//!\brief A tag to select only every k-th kmer from a pattern.
-struct NonOverlappingKmers_;
-typedef Tag<NonOverlappingKmers_> NonOverlappingKmers;
-
-//!\brief A tag to select only every k-th kmer from a pattern.
 template <bool>
 struct KmerOffset {};
 
@@ -201,7 +204,7 @@ inline void clear(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> &
  * \param binNo The bin to add the k-mers to.
  */
 template<typename TValue, typename TSpec, typename TFilterVector, typename TShapeSpec, unsigned offset, typename TInt>
-inline void insertKmer(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> &  me, const char * fastaFile, TInt && binNo)
+inline void insertKmer(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> &  me, const char * fastaFile, TInt && binNo, [[maybe_unused]] bool batch=false, [[maybe_unused]] uint8_t batchChunkNo=0)
 {
     CharString id;
     String<TValue> seq;
@@ -226,6 +229,54 @@ inline void insertKmer(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offs
         }
         me.filterVector.compress(i);
         close(seqFileIn); // No rewind() for FormattedFile ?
+    }
+}
+
+/*!
+ * \brief Adds all fasta files from a directory to the respective bins.
+ * \param me The KmerFilter instance.
+ * \param baseDir The directory containing the fasta files in a "bins" subdirectory.
+ * \param threads Number of threads to use.
+ *
+ * The fasta files are expected to follow the pattern <baseDir>/bins/bin_xxxx.fasta, where xxxx stands for the bin
+ * number. All bin numbers must have the same number of digits as the total number of bins. E.g. for 8192 bins, the
+ * bins are expected to be named bin_0000.fasta, bin_0001.fasta, ..., bin_8191.fasta; or for 64 bins: bin_00.fasta,
+ * bin_01.fasta, ..., bin_63.fasta.
+ * Up to <threads> fasta files are added to the filterVector at the same time.
+ */
+template<typename TValue, typename TSpec, typename TFilterVector, typename TShapeSpec, unsigned offset>
+inline void insertKmerDir(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> &  me, const char * baseDir, uint8_t threads)
+{
+    Semaphore thread_limiter(threads);
+    std::mutex mtx;
+    std::vector<std::future<void>> tasks;
+
+    uint16_t bins = me.noOfBins;
+    for (uint8_t c = 0; c < me.filterVector.noOfChunks; ++c)
+    {
+        me.filterVector.decompress(c);
+        for(int16_t i = 0; i < bins; ++i)
+        {
+            CharString file(baseDir);
+            append(file, CharString(std::to_string(bins)));
+            append(file, CharString{"/bins/bin_"});
+            append(file, CharString(std::string(numDigits(bins)-numDigits(i), '0') + (std::to_string(i))));
+            append(file, CharString(".fasta"));
+            tasks.emplace_back(
+                std::async(std::launch::async, [=, &thread_limiter, &me, &mtx] {
+                    Critical_section _(thread_limiter);
+                    insertKmer(me, toCString(file), i, true, c);
+                    mtx.lock();
+                    std::cerr << "IBF Bin " << i << " done." << '\n';
+                    mtx.unlock();
+                })
+            );
+        }
+
+        for (auto &&task : tasks){
+            task.get();
+        }
+        me.filterVector.compress(c);
     }
 }
 
