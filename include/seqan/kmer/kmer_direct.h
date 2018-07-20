@@ -185,7 +185,7 @@ public:
      * \param threads Number of threads to use.
      */
     template<typename TInt>
-    void clear(std::vector<uint16_t> const & bins, TInt&& threads)
+    void clear(std::vector<uint32_t> const & bins, TInt&& threads)
     {
         std::vector<std::future<void>> tasks;
         uint64_t chunkBlocks = filterVector.chunkSize / filterVector.blockBitSize;
@@ -214,7 +214,7 @@ public:
                     {
                         uint64_t vecPos = hashBlock * filterVector.blockBitSize;
                         uint8_t chunkNo = vecPos / filterVector.chunkSize;
-                        for(uint16_t binNo : bins)
+                        for(uint32_t binNo : bins)
                         {
                             if (chunk == chunkNo)
                                 filterVector.unset_pos(vecPos + binNo);
@@ -306,7 +306,7 @@ public:
      * \param counts Vector to be filled with counts.
      * \param text Text to count occurences for.
      */
-    void select(std::vector<uint16_t> & counts, TString const & text)
+    void select(std::vector<uint32_t> & counts, TString const & text)
     {
         TShape kmerShape;
         //Selector sel;
@@ -317,8 +317,8 @@ public:
             // Move to first bit representing the hash kmerHash for bin 0, the next bit would be for bin 1, and so on
             kmerHash *= blockBitSize;
 
-            uint16_t binNo = 0;
-            for (uint16_t batchNo = 0; batchNo < binWidth; ++batchNo)
+            uint32_t binNo = 0;
+            for (uint32_t batchNo = 0; batchNo < binWidth; ++batchNo)
             {
                 binNo = batchNo * intSize;
                 // get_int(idx, len) returns the integer value of the binary string of length len starting
@@ -367,9 +367,9 @@ public:
     template<typename TInt>
     inline void select(std::vector<bool> & selected, TString const & text, TInt && threshold)
     {
-        std::vector<uint16_t> counts(noOfBins, 0);
+        std::vector<uint32_t> counts(noOfBins, 0);
         select(counts, text);
-        for(uint16_t binNo=0; binNo < noOfBins; ++binNo)
+        for(uint32_t binNo=0; binNo < noOfBins; ++binNo)
         {
             if(counts[binNo] >= threshold)
                 selected[binNo] = true;
@@ -402,10 +402,11 @@ public:
     inline void init()
     {
         // How many blocks of 64 bit do we need to represent our noOfBins
-        binWidth = std::ceil((double)noOfBins / intSize);
+        binWidth = std::ceil((double)noOfBins / intSize);       
         // How big is then a block (multiple of 64 bit)
         blockBitSize = binWidth * intSize;
-        // How many hash values must we represent
+       
+         // How many hash values must we represent
         noOfBlocks = ipow(ValueSize<TValue>::VALUE, kmerSize);
         // Size of the bit vector
         noOfBits = noOfBlocks * blockBitSize;

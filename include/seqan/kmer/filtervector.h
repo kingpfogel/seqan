@@ -53,10 +53,10 @@ struct FilterVector<Uncompressed>
     static const uint16_t FILTER_METADATA_SIZE{256};
     static const uint8_t INT_SIZE{0x40};
 
-    uint16_t noOfBins;
+    uint32_t noOfBins;
     uint64_t noOfBits;
     uint16_t binWidth;
-    uint16_t blockBitSize;
+    uint32_t blockBitSize;
     uint64_t noOfBlocks;
     uint8_t  noOfChunks;
     uint64_t chunkSize;
@@ -73,7 +73,7 @@ struct FilterVector<Uncompressed>
 
     FilterVector() {}
 
-    FilterVector(uint16_t bins, uint64_t bits):
+    FilterVector(uint32_t bins, uint64_t bits):
         noOfBins(bins),
         noOfBits(bits)
     {
@@ -135,7 +135,7 @@ struct FilterVector<Uncompressed>
         blockBitSize = binWidth * INT_SIZE;
         // How many hash values can we represent
         noOfBlocks = (noOfBits + FILTER_METADATA_SIZE) / blockBitSize;
-    }
+     }
 
     uint64_t get_int(uint64_t idx, uint64_t len = 1ULL<<6)
     {
@@ -179,10 +179,10 @@ struct FilterVector<CompressedSimple>
     static const uint16_t FILTER_METADATA_SIZE{256};
     static const uint8_t INT_SIZE{0x40};
 
-    uint16_t noOfBins;
+    uint32_t noOfBins;
     uint64_t noOfBits;
     uint16_t binWidth;
-    uint16_t blockBitSize;
+    uint32_t blockBitSize;
     uint64_t noOfBlocks;
     uint8_t  noOfChunks;
     uint64_t chunkSize;
@@ -242,7 +242,7 @@ struct FilterVector<CompressedSimple>
 
     FilterVector() {}
 
-    FilterVector(uint16_t bins, uint64_t bits):
+    FilterVector(uint32_t bins, uint64_t bits):
         noOfBins(bins),
         noOfBits(bits)
     {
@@ -364,10 +364,10 @@ struct FilterVector<CompressedArray>
     static const uint8_t INT_SIZE{0x40};
     static const uint64_t MAX_VEC = 1ULL<<32; //512 MB, 36 -> 8GB, 39 -> 64
 
-    uint16_t noOfBins;
+    uint32_t noOfBins;
     uint64_t noOfBits;
     uint16_t binWidth;
-    uint16_t blockBitSize;
+    uint32_t blockBitSize;
     uint64_t noOfBlocks;
     uint8_t  noOfChunks;
     uint64_t chunkSize;
@@ -420,7 +420,7 @@ struct FilterVector<CompressedArray>
 
     FilterVector() {}
 
-    FilterVector(uint16_t bins, uint64_t bits):
+    FilterVector(uint32_t bins, uint64_t bits):
         noOfBins(bins),
         noOfBits(bits)
     {

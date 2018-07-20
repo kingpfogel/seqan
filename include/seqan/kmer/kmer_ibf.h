@@ -175,7 +175,7 @@ public:
      * \param threads Number of threads to use.
      */
     template<typename TInt>
-    void clear(std::vector<uint16_t> const & bins, TInt&& threads)
+    void clear(std::vector<uint32_t> const & bins, TInt&& threads)
     {
         std::vector<std::future<void>> tasks;
         uint64_t chunkBlocks = filterVector.chunkSize / filterVector.blockBitSize;
@@ -204,7 +204,7 @@ public:
                     {
                         uint64_t vecPos = hashBlock * filterVector.blockBitSize;
                         uint8_t  chunkNo = vecPos / filterVector.chunkSize;
-                        for(uint16_t binNo : bins)
+                        for(uint32_t binNo : bins)
                         {
                             if (chunk == chunkNo)
                                 filterVector.unset_pos(vecPos + binNo);
@@ -257,7 +257,7 @@ public:
         //uint16_t x = length(text) % kmerSize;
         //uint16_t noOfKmerHashes = ((length(text) - x) / kmerSize)+1;
         uint16_t x = (length(text) - kmerSize) % offset;
-        uint16_t noOfKmerHashes = 1 + (length(text) - kmerSize + offset - x) / offset;
+        uint16_t noOfKmerHashes = 1 +(double)(length(text) - kmerSize + offset - x) / offset;
         if (x == 0)
         {
             noOfKmerHashes -= 1;
@@ -293,7 +293,7 @@ public:
      * \param counts Vector to be filled with counts.
      * \param text Text to count occurences for.
      */
-    void select(std::vector<uint16_t> & counts, TString const & text) // TODO uint16_t
+    void select(std::vector<uint32_t> & counts, TString const & text) // TODO uint16_t
     {
         TShape kmerShape;
         //Selector sel;
@@ -308,8 +308,8 @@ public:
                 hashToIndex(vecIndices[i]);
             }
 
-            uint16_t binNo = 0;
-            for (uint16_t batchNo = 0; batchNo < binWidth; ++batchNo)
+            uint32_t binNo = 0;
+            for (uint32_t batchNo = 0; batchNo < binWidth; ++batchNo)
             {
                 binNo = batchNo * intSize;
                 // get_int(idx, len) returns the integer value of the binary string of length len starting
@@ -365,9 +365,9 @@ public:
     template<typename TInt>
     inline void select(std::vector<bool> & selected, TString const & text, TInt && threshold)
     {
-        std::vector<uint16_t> counts(noOfBins, 0);
+        std::vector<uint32_t> counts(noOfBins, 0);
         select(counts, text);
-        for(uint16_t binNo=0; binNo < noOfBins; ++binNo)
+        for(uint32_t binNo=0; binNo < noOfBins; ++binNo)
         {
             if(counts[binNo] >= threshold)
                 selected[binNo] = true;

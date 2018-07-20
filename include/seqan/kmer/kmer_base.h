@@ -146,12 +146,12 @@ class KmerFilter;
 template<typename TValue, typename TSpec, typename TFilterVector, typename TShapeSpec, unsigned offset>
 struct Value<KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> >
 {
-    typedef uint16_t noOfBins;
+    typedef uint32_t noOfBins;
     typedef uint16_t kmerSize;
     typedef uint64_t noOfBits;
     typedef uint64_t noOfBlocks;
     typedef uint16_t binWidth;
-    typedef uint16_t blockBitSize;
+    typedef uint32_t blockBitSize;
     typedef uint8_t  intSize;
     typedef uint16_t filterMetadataSize;
     typedef uint8_t  noOfHashFunc;
@@ -211,6 +211,11 @@ inline void insertKmer(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offs
     SeqFileIn seqFileIn;
     for (uint8_t i = 0; i < me.filterVector.noOfChunks; ++i)
     {
+        if constexpr (std::is_same_v<TFilterVector, CompressedArray>)
+        {
+            if (batch)
+                i = batchChunkNo;
+        }
         if (!open(seqFileIn, fastaFile))
         {
             CharString msg = "Unable to open contigs file: ";
@@ -218,8 +223,8 @@ inline void insertKmer(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offs
             std::cerr << msg << std::endl;
             throw toCString(msg);
         }
-
-        me.filterVector.decompress(i);
+        if (!batch)
+            me.filterVector.decompress(i);
         while(!atEnd(seqFileIn))
         {
             readRecord(id, seq, seqFileIn);
@@ -227,8 +232,15 @@ inline void insertKmer(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offs
                 continue;
             insertKmer(me, seq, binNo, i);
         }
-        me.filterVector.compress(i);
+        if (!batch)
+            me.filterVector.compress(i);
         close(seqFileIn); // No rewind() for FormattedFile ?
+
+        if constexpr (std::is_same_v<TFilterVector, CompressedArray>)
+        {
+            if (batch)
+                break;
+        }
     }
 }
 
@@ -248,14 +260,14 @@ template<typename TValue, typename TSpec, typename TFilterVector, typename TShap
 inline void insertKmerDir(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> &  me, const char * baseDir, uint8_t threads)
 {
     Semaphore thread_limiter(threads);
-    std::mutex mtx;
+    // std::mutex mtx;
     std::vector<std::future<void>> tasks;
 
-    uint16_t bins = me.noOfBins;
+    uint32_t bins = me.noOfBins;
     for (uint8_t c = 0; c < me.filterVector.noOfChunks; ++c)
     {
         me.filterVector.decompress(c);
-        for(int16_t i = 0; i < bins; ++i)
+        for(uint32_t i = 0; i < bins; ++i)
         {
             CharString file(baseDir);
             append(file, CharString(std::to_string(bins)));
@@ -263,12 +275,12 @@ inline void insertKmerDir(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, o
             append(file, CharString(std::string(numDigits(bins)-numDigits(i), '0') + (std::to_string(i))));
             append(file, CharString(".fasta"));
             tasks.emplace_back(
-                std::async(std::launch::async, [=, &thread_limiter, &me, &mtx] {
+                std::async(std::launch::async, [=, &thread_limiter, &me] { // &mtx
                     Critical_section _(thread_limiter);
                     insertKmer(me, toCString(file), i, true, c);
-                    mtx.lock();
-                    std::cerr << "IBF Bin " << i << " done." << '\n';
-                    mtx.unlock();
+                    // mtx.lock();
+                    // std::cerr << "IBF Bin " << i << " done." << '\n';
+                    // mtx.unlock();
                 })
             );
         }
@@ -299,9 +311,9 @@ inline void select(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> 
  * \returns std::vector<uint64_t> of size binNo containing counts.
  */
 template<typename TValue, typename TSpec, typename TFilterVector, typename TShapeSpec, unsigned offset>
-inline std::vector<uint16_t> select(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> &  me, String<TValue> const & text)
+inline std::vector<uint32_t> select(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> &  me, String<TValue> const & text)
 {
-    std::vector<uint16_t> counts(me.noOfBins, 0);
+    std::vector<uint32_t> counts(me.noOfBins, 0);
     select(me, counts, text);
     return counts;
 }
@@ -449,3 +461,4 @@ inline bool isBitSet(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset
 }  // namespace seqan
 
 #endif  // INCLUDE_SEQAN_KMER_KMER_BASE_H_
+
