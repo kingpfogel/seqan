@@ -1,1 +1,130 @@
+template <CompleteOverlap>
+struct KmerOffset {
+ static const uint16_t FILTER_METADATA_SIZE{256};
+    static const uint8_t INT_SIZE{0x40};
 
+    uint32_t noOfBins;
+    uint64_t noOfBits;
+
+    KmerOffset() {}
+
+    KmerOffset(uint32_t bins, uint64_t bits):
+        noOfBins(bins),
+        noOfBits(bits)
+    {
+    }
+
+    KmerOffset & operator=(KmerOffset & other)
+    {
+
+        noOfBins = other.noOfBins;
+        noOfBits = other.noOfBits;
+
+        return *this;
+    }
+
+    KmerOffset & operator=(KmerOffset && other)
+    {
+
+        noOfBins = std::move(other.noOfBins);
+        noOfBits = std::move(other.noOfBits);
+
+        return *this;
+    }
+
+    ~KmerOffset() = default;
+
+
+    std::vector<uint64_t> selectHelper(TString const & text, TShape kmerShape)
+    {
+        uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
+        std::vector<uint64_t> kmerHashes(possible, 0);
+        resizeShape(kmerShape);
+        auto it = begin(text);
+        hashInit(kmerShape, it);
+        for (uint16_t i = 0; i < possible; ++i)
+        {
+            kmerHashes[i] = hashNext(kmerShape, it);
+            ++it;
+        }
+        return kmerHashes;
+    }
+
+};
+
+
+template <IncompleteOverlap>
+struct KmerOffset {
+ static const uint16_t FILTER_METADATA_SIZE{256};
+    static const uint8_t INT_SIZE{0x40};
+
+    uint32_t noOfBins;
+    uint64_t noOfBits;
+
+    KmerOffset() {}
+
+    KmerOffset(uint32_t bins, uint64_t bits):
+        noOfBins(bins),
+        noOfBits(bits)
+    {
+    }
+
+    KmerOffset & operator=(KmerOffset & other)
+    {
+        uncompressed_vector = std::make_unique<sdsl::bit_vector>(*other.uncompressed_vector);
+        noOfBins = other.noOfBins;
+        noOfBits = other.noOfBits;
+
+        return *this;
+    }
+
+    KmerOffset & operator=(KmerOffset && other)
+    {
+        uncompressed_vector = std::move(other.uncompressed_vector);
+        noOfBins = std::move(other.noOfBins);
+        noOfBits = std::move(other.noOfBits);
+
+
+        return *this;
+    }
+
+    ~KmerOffset() = default;  
+
+    std::vector<uint64_t> selectHelper(TString const & text, TShape kmerShape)
+    {
+        uint16_t possible = length(text) - kmerSize + 1;
+        uint16_t x = (length(text) - kmerSize) % offset;
+        uint16_t noOfKmerHashes = 1 + (length(text) - kmerSize + offset - x) / offset;
+        if (x == 0)
+        {
+            noOfKmerHashes -= 1;
+        }
+        std::vector<uint64_t> kmerHashes(noOfKmerHashes, 0);
+        resizeShape(kmerShape);
+        auto it = begin(text);
+        hashInit(kmerShape, it);
+
+        uint32_t c = 0;
+        for (uint32_t i = 0; i < possible; ++i)
+        {
+            uint64_t kmerHash = hashNext(kmerShape, it);
+            if(i-c*offset == 0)
+            {
+                if(c < ((length(text) - kmerSize + offset - x) / offset))
+                {
+                    kmerHashes[c] = kmerHash;
+                }
+                ++c;
+            }
+            if(i == possible-1u && x != 0u)
+            {
+                kmerHashes[c] = kmerHash;
+            }
+            ++it;
+        }
+
+        return kmerHashes;
+    }
+
+
+};
