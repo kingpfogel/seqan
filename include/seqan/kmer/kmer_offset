@@ -1,4 +1,4 @@
-template <CompleteOverlap>
+template <1u>
 struct KmerOffset {
  static const uint16_t FILTER_METADATA_SIZE{256};
     static const uint8_t INT_SIZE{0x40};
@@ -16,7 +16,6 @@ struct KmerOffset {
 
     KmerOffset & operator=(KmerOffset & other)
     {
-
         noOfBins = other.noOfBins;
         noOfBits = other.noOfBits;
 
@@ -53,7 +52,7 @@ struct KmerOffset {
 };
 
 
-template <IncompleteOverlap>
+template <unsigned>
 struct KmerOffset {
  static const uint16_t FILTER_METADATA_SIZE{256};
     static const uint8_t INT_SIZE{0x40};
@@ -94,7 +93,7 @@ struct KmerOffset {
     {
         uint16_t possible = length(text) - kmerSize + 1;
         uint16_t x = (length(text) - kmerSize) % offset;
-        uint16_t noOfKmerHashes = 1 + (length(text) - kmerSize + offset - x) / offset;
+        //uint16_t noOfKmerHashes = 1 + (length(text) - kmerSize + offset - x) / offset;
         if (x == 0)
         {
             noOfKmerHashes -= 1;
