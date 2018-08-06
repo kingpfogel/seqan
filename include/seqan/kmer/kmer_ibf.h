@@ -98,7 +98,7 @@ public:
     static const typename Value<KmerFilter>::filterMetadataSize filterMetadataSize{256};
     //!\brief A ungapped Shape over our filter alphabet.
     typedef Shape<TValue, TShapeSpec>  TShape;
-    KmerOffset<(offset==1u)> kmerOffset;
+    KmerOffset<offset> kmerOffset;
     //typedef TSelector Selector;
     /* rule of six */
     /*\name Constructor, destructor and assignment
@@ -230,64 +230,6 @@ public:
        // std::cout << "resize SimpleShape " << kmerSize<< std::endl;
         resize(shape, kmerSize);
     }
-    std::vector<uint64_t> selectHelper(CompleteCoverage const &, TString const & text, TShape kmerShape)
-    {
-     //   std::cout << "selectHelper OverlappingKmers" << std::endl;
-        uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
-        std::vector<uint64_t> kmerHashes(possible, 0);
-       // shape.resizeShape(kmerSize);
-        resizeShape(kmerShape);
-        auto it = begin(text);
-        hashInit(kmerShape, it);
-        for (uint16_t i = 0; i < possible; ++i)
-        {
-            kmerHashes[i] = hashNext(kmerShape, it);
-            ++it;
-        }
-        return kmerHashes;
-    }
-
-    std::vector<uint64_t> selectHelper(IncompleteCoverage const &, TString const & text, TShape kmerShape)
-    {
-      //  std::cout << "selectHelper NonOverlappingKmers" << std::endl;
-
-        uint16_t possible = length(text) - kmerSize + 1;
-        // Supports text lengths up to 65535 + k
-
-        //uint16_t x = length(text) % kmerSize;
-        //uint16_t noOfKmerHashes = ((length(text) - x) / kmerSize)+1;
-        uint16_t x = (length(text) - kmerSize) % offset;
-        uint16_t noOfKmerHashes = 1 +(double)(length(text) - kmerSize + offset - x) / offset;
-        if (x == 0)
-        {
-            noOfKmerHashes -= 1;
-        }
-        std::vector<uint64_t> kmerHashes(noOfKmerHashes, 0);
-        resizeShape(kmerShape);
-        auto it = begin(text);
-        hashInit(kmerShape, it);
-
-        uint32_t c = 0;
-        for (uint32_t i = 0; i < possible; ++i)
-        {
-            uint64_t kmerHash = hashNext(kmerShape, it);
-            if(i-c*offset == 0)
-            {
-                if(c < ((length(text) - kmerSize + offset - x) / offset))
-                {
-                    kmerHashes[c] = kmerHash;
-                }
-                ++c;
-            }
-            if(i == possible-1u && x != 0u)
-            {
-                kmerHashes[c] = kmerHash;
-            }
-            ++it;
-        }
-
-        return kmerHashes;
-    }
     /*!
      * \brief Counts number of occurences in each bin for a given text.
      * \param counts Vector to be filled with counts.
@@ -297,7 +239,8 @@ public:
     {
         TShape kmerShape;
         //Selector sel;
-        std::vector<uint64_t> kmerHashes = selectHelper(kmerOffset, text, kmerShape);
+        resizeShape(kmerShape);
+        std::vector<uint64_t> kmerHashes = selectHelper(text, kmerShape, kmerSize, offset);
 
         for (uint64_t kmerHash : kmerHashes)
         {
