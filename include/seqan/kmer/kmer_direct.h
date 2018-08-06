@@ -91,7 +91,7 @@ public:
     typename Value<KmerFilter>::blockBitSize    noOfHashFunc{1};
     //!\brief A ungapped Shape over our filter alphabet.
     typedef Shape<TValue, TShapeSpec>  TShape;
-    KmerOffset<(offset==1u)> kmerOffset;
+    KmerOffset<offset> kmerOffset;
     /* rule of six */
     /*\name Constructor, destructor and assignment
      * \{
@@ -310,7 +310,8 @@ public:
     {
         TShape kmerShape;
         //Selector sel;
-        std::vector<uint64_t> kmerHashes = selectHelper(kmerOffset, text, kmerShape);
+        resizeShape(kmerShape);
+        std::vector<uint64_t> kmerHashes = kmerOffset.selectHelper(text, kmerShape, kmerSize, offset);
 
         for (uint64_t kmerHash : kmerHashes)
         {
