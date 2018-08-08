@@ -1,1 +1,9 @@
-seqan3_benchmark(unit_benchmark.cpp)
+seqan3_benchmark(unit_offset_functionality_benchmark.cpp)
+seqan3_benchmark(unit_ibf_gapped_benchmark.cpp)
+seqan3_benchmark(unit_ibf_ungapped_benchmark.cpp)
+seqan3_benchmark(unit_ibf_no_overlaps_benchmark.cpp)
+seqan3_benchmark(unit_da_no_overlaps_benchmark.cpp)
+seqan3_benchmark(unit_da_ungapped_benchmark.cpp)
+seqan3_benchmark(unit_da_gapped_benchmark.cpp)
+
+

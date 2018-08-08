@@ -233,21 +233,17 @@ public:
     template<typename T>
     void resizeShape(T)
     {
-      //  std::cout << "resize arbitrary shape" << std::endl;
-
     }
     void resizeShape(Shape<Dna, SimpleShape> & shape)
     {
-       // std::cout << "resize SimpleShape " << kmerSize<< std::endl;
         resize(shape, kmerSize);
     }
 
     std::vector<uint64_t> selectHelper(CompleteCoverage const &, TString const & text, TShape kmerShape)
     {
-     //   std::cout << "selectHelper OverlappingKmers" << std::endl;
         uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
         std::vector<uint64_t> kmerHashes(possible, 0);
-       // shape.resizeShape(kmerSize);
+
         resizeShape(kmerShape);
         auto it = begin(text);
         hashInit(kmerShape, it);
@@ -261,7 +257,6 @@ public:
 
     std::vector<uint64_t> selectHelper(IncompleteCoverage const &, TString const & text, TShape kmerShape)
     {
-      //  std::cout << "selectHelper NonOverlappingKmers" << std::endl;
 
         uint16_t possible = length(text) - kmerSize + 1;
         // Supports text lengths up to 65535 + k
@@ -293,6 +288,7 @@ public:
             }
             if(i == possible-1u && x != 0u)
             {
+
                 kmerHashes[c] = kmerHash;
             }
             ++it;
@@ -392,6 +388,7 @@ public:
         for (uint64_t i = 0; i < length(text) - length(kmerShape) + 1; ++i)
         {
             uint64_t kmerHash = hashNext(kmerShape, it);
+
             ++it;
             uint64_t vecIndex = kmerHash * blockBitSize + binNo;
             filterVector.set_pos(vecIndex, chunkNo);

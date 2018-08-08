@@ -182,7 +182,8 @@ static void insertKmer_IBF(benchmark::State& state)
     	shape = CharString("tmp_shape");
     }
 
-    CharString storage("/srv/public/neesemann/ibf/");
+    //CharString storage("/srv/public/neesemann/ibf/");
+    CharString storage("/storage/mi/kingpfogel/ibf_filter/");
     append(storage, CharString(std::to_string(bins)));
     append(storage, CharString("_"));
     if constexpr(std::is_same_v<TShapeSpec, SimpleShape>){
@@ -207,11 +208,13 @@ static void select_IBF(benchmark::State& state)
     auto hash = state.range(3);
     auto e = state.range(4);
 
-    int16_t t;
+    uint16_t t;
     CharString shape;
     if constexpr (std::is_same_v<TShapeSpec, SimpleShape>) {
         shape = CharString("_SimpleShape");
-        t = ((std::ceil((double)(100-k+1)/offset)-std::ceil((double)k/offset)*e)<0)? (0): (std::ceil((double)(100-k+1)/offset)-std::ceil((double)k/offset)*e);
+        t = ((std::ceil((double)(100-k+1)/offset)-std::ceil((double)k/offset)*e)<=0)? (1): (std::ceil((double)(100-k+1)/offset)-std::ceil((double)k/offset)*e);
+//        t = ((std::ceil((double)(100-k+1)/offset)-std::ceil((double)k/offset)*e)<=0)? (0): (std::ceil((double)(100-k+1)/offset)-std::ceil((double)k/offset)*e);
+//        t = 1;
     }
     else if constexpr(std::is_same_v<TShapeSpec, ShapePaper1>) {
         shape = CharString("ShapePaper1");
@@ -245,7 +248,8 @@ static void select_IBF(benchmark::State& state)
     }
     KmerFilter<TAlphabet, InterleavedBloomFilter, TFilter, TShapeSpec, offset> ibf(bins, hash, k, bits);
 
-    CharString storage("/srv/public/neesemann/ibf/");
+//    CharString storage("/srv/public/neesemann/ibf/");
+    CharString storage("/storage/mi/kingpfogel/ibf_filter/");
     append(storage, CharString(std::to_string(bins)));
     append(storage, CharString("_"));
     if constexpr(std::is_same_v<TShapeSpec, SimpleShape>){
@@ -420,7 +424,6 @@ static void insertKmer_DA(benchmark::State& state)
     append(storage, CharString("_"));
     append(storage, CharString("da.filter"));
     store(da, storage);
-
     state.counters["Size"] = da.filterVector.size_in_mega_bytes();
 }
 
@@ -479,6 +482,7 @@ static void select_DA(benchmark::State& state)
         typedef Shape<Dna, TShapeSpec> TShapeSpec2;
         TShapeSpec2 sia2;
         t = qgramThreshold(sia2, 100, e, hd, th);
+        //std::cerr << t<< "threshold" << std::endl;
         shape=CharString("xxx");
     }
     append(storage, shape);
@@ -620,7 +624,7 @@ static void IBFSelectArguments(benchmark::internal::Benchmark* b)
             {
                 for (int32_t hashNo = 3; hashNo < 4; ++hashNo)
                 {
-                   for (int16_t error: {2,5,10})
+                   for (int16_t error: {5,10})
                    {
                        b->Args({binNo, k, bits, hashNo, error}); 
                    }
@@ -686,7 +690,7 @@ static void DAInsertArguments(benchmark::internal::Benchmark* b)
 //BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, SimpleShape, 1u)->Args({64, 17, (1<<27),3});
 //BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, 17u)->Args({64, 17, (1<<27),3, 2});
 
-BENCHMARK_TEMPLATE(insertKmer_DA, Dna, Uncompressed, SimpleShape, 1u)->Apply(DAInsertArguments);
+/*BENCHMARK_TEMPLATE(insertKmer_DA, Dna, Uncompressed, SimpleShape, 1u)->Apply(DAInsertArguments);
 BENCHMARK_TEMPLATE(select_DA, Dna, Uncompressed, SimpleShape, 12u)->Apply(DASelectArguments);
 BENCHMARK_TEMPLATE(select_DA, Dna, Uncompressed, SimpleShape, 13u)->Apply(DASelectArguments);
 BENCHMARK_TEMPLATE(select_DA, Dna, Uncompressed, SimpleShape, 14u)->Apply(DASelectArguments);
@@ -701,20 +705,22 @@ BENCHMARK_TEMPLATE(select_DA, Dna, Uncompressed, S13_10, 1u)->Apply(DASelectArgu
 
 BENCHMARK_TEMPLATE(insertKmer_DA, Dna, Uncompressed, S14_8, 1u)->Apply(DAInsertArguments);
 BENCHMARK_TEMPLATE(select_DA, Dna, Uncompressed, S14_8, 1u)->Apply(DASelectArguments);
-
+*/
 //BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, SimpleShape, 1u)->Apply(IBFInsertArguments);
 //BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, 17u)->Apply(IBFSelectArguments)->UseManualTime();
 //BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, 18u)->Apply(IBFSelectArguments)->UseManualTime();
 //BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, 19u)->Apply(IBFSelectArguments)->UseManualTime();
-//BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, S17_8, 1u)->Apply(IBFInsertArguments);
-//BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, S17_8, 1u)->Apply(IBFSelectArguments);
-/*BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, S18_10, 1u)->Apply(IBFInsertArguments);
+/*BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, S17_8, 1u)->Apply(IBFInsertArguments);
+BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, S17_8, 1u)->Apply(IBFSelectArguments);
+BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, S18_10, 1u)->Apply(IBFInsertArguments);
 BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, S18_10, 1u)->Apply(IBFSelectArguments);
-*/
-//BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, SimpleShape, 1u)->Apply(IBFInsertArguments);
+BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, S19_10, 1u)->Apply(IBFInsertArguments);
+BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, S19_10, 1u)->Apply(IBFSelectArguments);*/
 
-/*BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, 17u)->Apply(IBFSelectArguments);
+BENCHMARK_TEMPLATE(insertKmer_IBF, Dna, Uncompressed, SimpleShape, 1u)->Apply(IBFInsertArguments);
+BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, 1u)->Apply(IBFSelectArguments);
+BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, 17u)->Apply(IBFSelectArguments);
 BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, 18u)->Apply(IBFSelectArguments);
-BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, 19u)->Apply(IBFSelectArguments);*/
+BENCHMARK_TEMPLATE(select_IBF, Dna, Uncompressed, SimpleShape, 19u)->Apply(IBFSelectArguments);
 BENCHMARK_MAIN();
 

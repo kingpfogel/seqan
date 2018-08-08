@@ -129,6 +129,7 @@ struct FilterVector<Uncompressed>
         noOfChunks = 1;
         chunkSize = noOfBits;
         noOfBins = get_int(noOfBits);
+
         // How many blocks of 64 bit do we need to represent our noOfBins
         binWidth = std::ceil((double)noOfBins / INT_SIZE);
         // How big is then a block (multiple of 64 bit)

@@ -299,7 +299,7 @@ inline void insertKmerDir(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, o
  * \param text A single text to count all contained k-mers for.
  */
 template<typename TValue, typename TSpec,  typename TFilterVector, typename TShapeSpec, unsigned offset>
-inline void select(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> &  me, std::vector<uint16_t> & counts, String<TValue> const & text)
+inline void select(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> &  me, std::vector<uint32_t> & counts, String<TValue> const & text)
 {
     me.select(counts, text);
 }
@@ -353,7 +353,7 @@ inline std::vector<bool> select(KmerFilter<TValue, TSpec, TFilterVector, TShapeS
  * \returns Value<KmerFilter<TValue, TSpec> >::Type Number of bins.
  */
 template<typename TValue, typename TSpec, typename TFilterVector, typename TShapeSpec, unsigned offset>
-inline typename Value<KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> >::noOfBins getNumberOfBins(KmerFilter<TValue, TSpec, TFilterVector> &  me)
+inline typename Value<KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> >::noOfBins getNumberOfBins(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> &  me)
 {
     return me.noOfBins;
 }
@@ -364,7 +364,7 @@ inline typename Value<KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offse
  * \returns Value<KmerFilter<TValue, TSpec> >::Type k-mer size.
  */
 template<typename TValue, typename TSpec, typename TFilterVector, typename TShapeSpec, unsigned offset>
-inline typename Value<KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> >::kmerSize getKmerSize(KmerFilter<TValue, TSpec, TFilterVector> &  me)
+inline typename Value<KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> >::kmerSize getKmerSize(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> &  me)
 {
     return me.kmerSize;
 }
@@ -399,7 +399,6 @@ inline void setMetadata(KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, off
     //-------------------------------------------------------------------
 
     typename Value<KmerFilter<TValue, TSpec, TFilterVector, TShapeSpec, offset> >::noOfBits metadataStart = me.noOfBits;
-
     // TODO also store TValue (alphabet)
     me.filterVector.set_int(metadataStart, me.noOfBins);
     me.filterVector.set_int(metadataStart + 64, me.noOfHashFunc);

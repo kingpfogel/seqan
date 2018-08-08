@@ -30,6 +30,7 @@
 //
 // ==========================================================================
 // Author:      Enrico Seiler <enrico.seiler@fu-berlin.de>
+// Modified by: Niklas Neesemann <niklas.neesemann@fu-berlin.de>
 // ==========================================================================
 
 #include <algorithm>
@@ -37,10 +38,10 @@
 #include <cassert>
 #include <stdio.h>
 #include <vector>
-
+#include <seqan/index.h>
 #include <seqan/seq_io.h>
 #include <seqan/kmer.h>
-#include <seqan/index.h>
+
 static const uint32_t filterMetadataSize = 256;
 static const uint8_t INT_WIDTH = 0x40;
 
@@ -48,14 +49,11 @@ using namespace seqan;
 
 int main()
 {
-    //SeqAnBloomFilter<> filter (10, 1, 12, 16777216);
     uint64_t threads{3};
     uint64_t noBins{10};
     uint64_t kmerSize{14};
-    [[maybe_unused]]
-    uint64_t hashFunc{3};
-    [[maybe_unused]]
-    uint64_t bits{1ULL<<33};
+
+   // uint64_t bits{1ULL<<33};
 
 
     // ==========================================================================
@@ -63,34 +61,29 @@ int main()
     // ==========================================================================
     std::cout << "Testing ctors" << '\n';
 
-    typedef InterleavedBloomFilter TSpec;
-    // typedef DirectAddressing       TSpec;
-
+    typedef DirectAddressing       TSpec;
     typedef Uncompressed TFilter;
-    // typedef CompressedSimple TFilter;
-    //typedef CompressedArray TFilter;
-
+    typedef SimpleShape TShapeSpec;
+  //  typedef ShapeIlieA1 TShapeSpec;
+  //  typedef OverlappingKmers TSelector;
+    unsigned const offset = 1u;
     // Empty default constructor
-    KmerFilter<Dna, TSpec, TFilter> ctor_empty;
+    KmerFilter<Dna, TSpec, TFilter, TShapeSpec, offset> ctor_empty;
     // Default constructor
 
-    KmerFilter<Dna, TSpec, TFilter> ctor_default (noBins, hashFunc, kmerSize, bits);
-    KmerFilter<Dna, TSpec, TFilter> ctor_default_helper1 (noBins, hashFunc, kmerSize, bits);
-    KmerFilter<Dna, TSpec, TFilter> ctor_default_helper2 (noBins, hashFunc, kmerSize, bits);
-
-    // KmerFilter<Dna, TSpec, TFilter> ctor_default (noBins, kmerSize);
-    // KmerFilter<Dna, TSpec, TFilter> ctor_default_helper1 (noBins, kmerSize);
-    // KmerFilter<Dna, TSpec, TFilter> ctor_default_helper2 (noBins, kmerSize);
+    KmerFilter<Dna, TSpec, TFilter, TShapeSpec, offset> ctor_default (noBins, kmerSize);
+    KmerFilter<Dna, TSpec, TFilter, TShapeSpec, offset> ctor_default_helper1 (noBins, kmerSize);
+    KmerFilter<Dna, TSpec, TFilter, TShapeSpec, offset> ctor_default_helper2 (noBins, kmerSize);
 
     // Copy constructor
-    KmerFilter<Dna, TSpec, TFilter> ctor_copy (ctor_default);
+    KmerFilter<Dna, TSpec, TFilter, TShapeSpec, offset> ctor_copy (ctor_default);
     // Copy assignment
-    KmerFilter<Dna, TSpec, TFilter> assignment_copy;
+    KmerFilter<Dna, TSpec, TFilter, TShapeSpec, offset> assignment_copy;
     assignment_copy = ctor_default;
     // Move constructor
-    KmerFilter<Dna, TSpec, TFilter> ctor_move(std::move(ctor_default_helper1));
+    KmerFilter<Dna, TSpec, TFilter, TShapeSpec, offset> ctor_move(std::move(ctor_default_helper1));
     // Move assignment
-    KmerFilter<Dna, TSpec, TFilter> assignment_move;
+    KmerFilter<Dna, TSpec, TFilter, TShapeSpec, offset> assignment_move;
     assignment_move = std::move(ctor_default_helper2);
 
 
@@ -99,7 +92,7 @@ int main()
     // ==========================================================================
     std::cout << "Testing insertKmer" << '\n';
 
-        CharString fasta("../../unit/test.fasta");
+        CharString fasta("/home/mi/kingpfogel/dev/seqan/include/seqan/kmer/test/unit/test.fasta");
         insertKmer(ctor_default, toCString(fasta), 1);
         insertKmer(ctor_default, toCString(fasta), 5);
         insertKmer(ctor_default, toCString(fasta), 8);
@@ -112,10 +105,12 @@ int main()
     // ==========================================================================
     // Test storing and retrieving
     // ==========================================================================
-    std::cout << "Testing store/retrieve" << '\n';
+
 
     CharString store1("file");
+
     store(ctor_default, store1);
+    std::cout << "Testing store/retrieve" << '\n';
     retrieve(ctor_empty, store1);
 
 
@@ -125,9 +120,9 @@ int main()
     // ==========================================================================
     std::cout << "Testing select" << '\n';
 
-    std::vector<uint16_t> ctor_default_set;
+    std::vector<uint32_t> ctor_default_set;
 
-    std::vector<bool> which = select(ctor_default, DnaString(std::string(kmerSize, 'A')), 1);
+    std::vector<bool> which = select(ctor_default, DnaString(std::string(kmerSize, 'A')), 1u);
     (void) select(ctor_default, DnaString(std::string(kmerSize, 'T')));
     for (uint16_t i = 0; i < which.size(); ++i)
     {
