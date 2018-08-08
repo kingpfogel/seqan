@@ -126,13 +126,13 @@ typedef Tag<CompressedArray_> CompressedArray;
 template<typename TSpec>
 class FilterVector;
 
-template <bool>
-struct KmerOffset {};
+//template <bool>
+//struct KmerOffset {};
 
 //!\brief typedef used for selectHelper for overlapping k-mers
-typedef KmerOffset<true> CompleteCoverage;
+//typedef KmerOffset<true> CompleteCoverage;
 //!\brief typedef used for selectHelper for non-overlapping k-mers
-typedef KmerOffset<false> IncompleteCoverage;
+//typedef KmerOffset<false> IncompleteCoverage;
 // --------------------------------------------------------------------------
 // Class KmerFilter
 // --------------------------------------------------------------------------
