@@ -31,6 +31,7 @@
 // ==========================================================================
 // Author:  Temesgen H. Dadi <temesgen.dadi@fu-berlin.de>
 //          Enrico Seiler <enrico.seiler@fu-berlin.de>
+// Adapted for a bachelor thesis by Niklas Neesemann
 // ==========================================================================
 
 #ifndef INCLUDE_SEQAN_KMER_KMER_BASE_H_
@@ -128,7 +129,9 @@ class FilterVector;
 template <bool>
 struct KmerOffset {};
 
+//!\brief typedef used for selectHelper for overlapping k-mers
 typedef KmerOffset<true> CompleteCoverage;
+//!\brief typedef used for selectHelper for non-overlapping k-mers
 typedef KmerOffset<false> IncompleteCoverage;
 // --------------------------------------------------------------------------
 // Class KmerFilter

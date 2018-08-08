@@ -31,6 +31,7 @@
 // ==========================================================================
 // Author:  Temesgen H. Dadi <temesgen.dadi@fu-berlin.de>
 //          Enrico Seiler <enrico.seiler@fu-berlin.de>
+// Adapted for a bachelor thesis by Niklas Neesemann
 // ==========================================================================
 
 #ifndef INCLUDE_SEQAN_KMER_KMER_IBF_H_
@@ -96,8 +97,9 @@ public:
     //KmerShape<TValue, TShapeSpec>                                shape;
     //!\brief Size in bits of the meta data.
     static const typename Value<KmerFilter>::filterMetadataSize filterMetadataSize{256};
-    //!\brief A ungapped Shape over our filter alphabet.
+    //!\brief A Shape over our filter alphabet.
     typedef Shape<TValue, TShapeSpec>  TShape;
+    //!\brief Offset - either CompleteCoverage or IncompleteCoverage
     KmerOffset<(offset==1u)> kmerOffset;
     //typedef TSelector Selector;
     /* rule of six */
@@ -219,23 +221,32 @@ public:
             filterVector.compress(chunk);
         }
     }
+    /*!
+    * \brief resize wrapper for any shape that is not Shape<Dna, SimpleShape> - does nothing
+    * \param T can be anything, empty function
+    */
     template<typename T>
     void resizeShape(T)
     {
-        //std::cout << "resize arbitrary shape" << std::endl;
-
     }
+    /*!
+    * \brief resize wrapper for shape that is Shape<Dna, SimpleShape>
+    * \param shape to be resized
+    */
     void resizeShape(Shape<Dna, SimpleShape> & shape)
     {
-       // std::cout << "resize SimpleShape " << kmerSize<< std::endl;
         resize(shape, kmerSize);
     }
+    /*!
+    * \brief returns the hashes for overlapping k-mers
+    * \param text is the pattern that shall be searched
+    * \param kmerShape is the shape that will be used for hashing
+    */
     std::vector<uint64_t> selectHelper(CompleteCoverage const &, TString const & text, TShape kmerShape)
     {
-     //   std::cout << "selectHelper OverlappingKmers" << std::endl;
+
         uint16_t possible = length(text) - kmerSize + 1; // Supports text lengths up to 65535 + k
         std::vector<uint64_t> kmerHashes(possible, 0);
-       // shape.resizeShape(kmerSize);
         resizeShape(kmerShape);
         auto it = begin(text);
         hashInit(kmerShape, it);
@@ -246,16 +257,17 @@ public:
         }
         return kmerHashes;
     }
-
+    /*!
+    * \brief returns the hashes for k-mers with offset
+    * \param text is the pattern that shall be searched
+    * \param kmerShape is the shape that will be used for hashing
+    */
     std::vector<uint64_t> selectHelper(IncompleteCoverage const &, TString const & text, TShape kmerShape)
     {
-      //  std::cout << "selectHelper NonOverlappingKmers" << std::endl;
 
         uint16_t possible = length(text) - kmerSize + 1;
         // Supports text lengths up to 65535 + k
 
-        //uint16_t x = length(text) % kmerSize;
-        //uint16_t noOfKmerHashes = ((length(text) - x) / kmerSize)+1;
         uint16_t x = (length(text) - kmerSize) % offset;
         uint16_t noOfKmerHashes = 1 +(double)(length(text) - kmerSize + offset - x) / offset;
         if (x == 0)
