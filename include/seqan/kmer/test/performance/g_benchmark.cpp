@@ -114,7 +114,7 @@ static void select_IBF(benchmark::State& state)
     CharString shape;
     if constexpr (std::is_same_v<TShapeSpec, SimpleShape>) {
         shape = CharString("_SimpleShape");
-        t = ((std::ceil((double)(100-k+1)/offset)-std::ceil((double)k/offset)*e)<=0)? (1): (std::ceil((double)(100-k+1)/offset)-std::ceil((double)k/offset)*e);
+        t = ((std::ceil((double)(100-k+1)/offset)-std::ceil((double)k/offset)*e)<=0)? (0): (std::ceil((double)(100-k+1)/offset)-std::ceil((double)k/offset)*e);
 
     }
     else {
@@ -455,7 +455,7 @@ static void IBFSelectArguments(benchmark::internal::Benchmark* b)
             {
                 for (int32_t hashNo = 3; hashNo < 4; ++hashNo)
                 {
-                   for (int16_t error: {5,10})
+                   for (int16_t error: {2,5,10})
                    {
                        b->Args({binNo, k, bits, hashNo, error}); 
                    }
